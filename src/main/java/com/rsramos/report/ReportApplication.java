@@ -1,14 +1,14 @@
 package com.rsramos.report;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -17,8 +17,8 @@ import java.util.List;
 public class ReportApplication {
 
     public static void main(String[] args) throws IOException {
-//		SpringApplication.run(ReportApplication.class, args);
-        createXLS();
+		SpringApplication.run(ReportApplication.class, args);
+//        createXLS();
     }
 
     private static void createXLS() throws IOException {

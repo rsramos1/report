@@ -111,12 +111,15 @@ public class CreateReport implements Serializable {
         JsonObject config = sheetJson.getAsJsonObject(CONFIG_ATTRIBUTE);
         Map<String, String> columnNames = loadColumnNames(config, data.get(0).getAsJsonObject());
         Sheet sheet = this.workbook.createSheet(name);
+        List<Integer> autoSizeColumns = new ArrayList<>();
 
-        createHeader(config, columnNames, sheet);
+        createHeader(config, columnNames, autoSizeColumns, sheet);
         createBody(data, config.get(BODY_ATTRIBUTE).getAsJsonObject(), columnNames.keySet(), sheet);
+
+        resizeColumns(autoSizeColumns, sheet);
     }
 
-    protected void createHeader(JsonObject config, Map<String, String> columnNames, Sheet sheet) {
+    protected void createHeader(JsonObject config, Map<String, String> columnNames, List<Integer> autoSizeColumns, Sheet sheet) {
         JsonObject column = config.getAsJsonObject(COLUMN_ATTRIBUTE);
         JsonElement headerStyle = config.getAsJsonObject(HEADER_ATTRIBUTE);
         Float height = getHeight(headerStyle.getAsJsonObject());
@@ -129,30 +132,30 @@ public class CreateReport implements Serializable {
         }
 
         int index = 0;
-        Iterator<String> keys = columnNames.keySet().iterator();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            Cell cell = row.createCell(index++);
+        for (String key : columnNames.keySet()) {
+            Cell cell = row.createCell(index);
             cell.setCellValue(columnNames.get(key));
 
             if (Objects.nonNull(cellStyle)) {
                 cell.setCellStyle(cellStyle);
             }
 
-            Optional.ofNullable(column.get(key)).ifPresent(obj -> {
-                Optional.ofNullable(obj.getAsJsonObject().get(WIDTH_ATTRIBUTE)).ifPresent(width -> {
+            final int columnIndex = index++;
+            Optional.ofNullable(column.get(key)).ifPresent(obj ->
+                Optional.ofNullable(obj.getAsJsonObject().get(WIDTH_ATTRIBUTE)).ifPresentOrElse(width -> {
                     String value = width.getAsString();
                     if (StringUtils.isNotBlank(value)) {
                         sheet.setColumnWidth(cell.getColumnIndex(), Integer.parseInt(width.getAsString()) + 4000);
+                    } else {
+                        autoSizeColumns.add(columnIndex);
                     }
-                });
-            });
+                }, () -> autoSizeColumns.add(columnIndex)));
+            ;
         }
     }
 
     protected void createBody(JsonArray data, JsonObject bodyConfig, Set<String> keys, Sheet sheet) {
         int rowIndex = this.startRowIndex + 1;
-        Iterator<String> keysIterator = keys.iterator();
         CellStyle cellStyle = createCellStyle(bodyConfig);
         Float height = getHeight(bodyConfig);
 
@@ -164,8 +167,7 @@ public class CreateReport implements Serializable {
             }
 
             JsonObject dataObject = dataElement.getAsJsonObject();
-            while (keysIterator.hasNext()) {
-                String key = keysIterator.next();
+            for (String key : keys) {
                 Cell cell = row.createCell(columnIndex++);
 
                 Optional.ofNullable(dataObject.get(key)).ifPresentOrElse(
@@ -305,6 +307,10 @@ public class CreateReport implements Serializable {
             });
         }
         return xssfColor;
+    }
+
+    protected void resizeColumns(List<Integer> columns, Sheet sheet) {
+        columns.forEach(sheet::autoSizeColumn);
     }
 
     protected File build() {
