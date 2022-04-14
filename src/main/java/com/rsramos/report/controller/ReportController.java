@@ -1,6 +1,6 @@
 package com.rsramos.report.controller;
 
-import com.google.gson.JsonObject;
+import com.rsramos.report.domain.Report;
 import com.rsramos.report.service.ReportService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,24 +19,24 @@ public class ReportController {
 
     @ResponseBody
     @PostMapping(path = "xls")
-    public ResponseEntity<byte[]> createXLS(@RequestBody JsonObject json) {
-        return ResponseEntity.ok(service.createXLS(json));
+    public ResponseEntity<byte[]> createXLS(@RequestBody Report report) {
+        return ResponseEntity.ok(service.createXLS(report));
     }
 
     @ResponseBody
     @PostMapping(path = "pdf")
-    public ResponseEntity<byte[]> createPDF(@RequestBody JsonObject json) {
-        return ResponseEntity.ok(service.createPDF(json));
+    public ResponseEntity<byte[]> createPDF(@RequestBody Report report) {
+        return ResponseEntity.ok(service.createPDF(report));
     }
 
     @ResponseBody
     @PostMapping(path = "test/xls")
-    public void testCreateXLS(@RequestBody JsonObject json) {
+    public void testCreateXLS(@RequestBody Report report) {
         File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
         try {
             file.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(file);
-            outputStream.write(service.createXLS(json));
+            outputStream.write(service.createXLS(report));
 //            outputStream.flush();
             outputStream.close();
         } catch (IOException e) {

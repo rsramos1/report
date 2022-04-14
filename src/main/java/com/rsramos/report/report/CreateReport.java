@@ -2,13 +2,16 @@ package com.rsramos.report.report;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.rsramos.report.domain.CellConfig;
+import com.rsramos.report.domain.ColumnConfig;
+import com.rsramos.report.domain.Report;
+import com.rsramos.report.domain.ReportSheet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.*;
 import java.util.*;
@@ -18,113 +21,63 @@ public class CreateReport implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private static final String EXTENSION_ATTRIBUTE = "extension";
-    private static final String FILE_NAME_ATTRIBUTE = "fileName";
-    private static final String SHEETS_ATTRIBUTE = "sheets";
-
-    private static final String NAME_ATTRIBUTE = "name";
-    private static final String CONFIG_ATTRIBUTE = "config";
-    private static final String HEADER_ATTRIBUTE = "header";
-    private static final String BODY_ATTRIBUTE = "body";
-    private static final String COLUMN_ATTRIBUTE = "column";
-    private static final String LABEL_ATTRIBUTE = "label";
-    private static final String WIDTH_ATTRIBUTE = "width";
-
-    private static final String HEIGHT_ATTRIBUTE = "height";
-    private static final String BACKGROUND_ATTRIBUTE = "background";
-    private static final String FOREGROUND_ATTRIBUTE = "foreground";
-    private static final String FONT_SIZE_ATTRIBUTE = "fontSize";
-    private static final String FONT_NAME_ATTRIBUTE = "fontName";
-    private static final String FONT_BOLD_ATTRIBUTE = "fontBold";
-    private static final String FONT_ITALIC_ATTRIBUTE = "fontItalic";
-
-    private static final String BORDER_ATTRIBUTE = "border";
-    private static final String TYPE_ATTRIBUTE = "type";
-    private static final String COLOR_ATTRIBUTE = "color";
-
-    private static final String DATA_ATTRIBUTE = "data";
-
     protected Workbook workbook;
-    private String fileName;
-    private String extension;
+    private final String fileName;
+    private final String extension;
     private final int startRowIndex;
     private final int startColumnIndex;
 
-    private final JsonArray sheets;
+    private final Report report;
 
-    protected CreateReport(JsonObject json, int startRowIndex, int startColumnIndex) {
-        Optional.ofNullable(json.get(EXTENSION_ATTRIBUTE)).ifPresentOrElse(
-                extension -> this.extension = extension.getAsString(),
-                () -> this.extension = "xls");
-        Optional.ofNullable(json.get(FILE_NAME_ATTRIBUTE)).ifPresentOrElse(
-                fileName -> this.fileName = fileName.getAsString(),
-                () -> this.extension = "report");
-        this.sheets = json.getAsJsonArray(SHEETS_ATTRIBUTE);
+    protected CreateReport(Report report, int startRowIndex, int startColumnIndex) {
+        this.fileName = StringUtils.defaultIfBlank(report.getFileName(), "report");
+        this.extension = StringUtils.defaultIfBlank(report.getExtension(), "xls");
+        this.report = report;
         this.startRowIndex = startRowIndex;
         this.startColumnIndex = startColumnIndex;
     }
 
-    protected CreateReport(JsonObject json) {
+    protected CreateReport(Report json) {
         this(json, 0, 0);
     }
 
-    protected Map<String, String> loadColumnNames(JsonObject config, JsonObject data) {
+    protected Set<String> getKeys(JSONObject data) {
+        Set<String> keys = new HashSet<>();
         try {
-            Map<String, String> headerFileds = new HashMap<>();
-            List<String> keys = new ArrayList<>();
             new ObjectMapper().readTree(data.toString()).fieldNames().forEachRemaining(keys::add);
-            JsonElement column = config.get(COLUMN_ATTRIBUTE);
-            keys.forEach(key -> {
-                String value = key;
-                if (Objects.nonNull(column)) {
-                    JsonElement columnKey = ((JsonObject) column).get(key);
-                    if (Objects.nonNull(columnKey)) {
-                        JsonElement columnLabel = ((JsonObject) columnKey).get(LABEL_ATTRIBUTE);
-                        if (Objects.nonNull(columnLabel)) {
-                            value = columnLabel.getAsString();
-                        }
-                    }
-                }
-                headerFileds.put(key, value);
-            });
-            return headerFileds;
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        return keys;
     }
 
     protected void createWorkbook() {
         this.workbook = new SXSSFWorkbook();
-
         int indice = 1;
-        for (JsonElement sheetJson : this.sheets) {
-            JsonElement nameElement = ((JsonObject) sheetJson).get(NAME_ATTRIBUTE);
-            String name = Objects.isNull(nameElement) ?
-                    StringUtils.join("Plan", indice++) :
-                    nameElement.getAsString();
-            createSheet(sheetJson.getAsJsonObject(), name);
+        for (ReportSheet sheet : this.report.getSheets()) {
+            String name = StringUtils.defaultIfBlank(sheet.getName(), StringUtils.join("Plan", indice++));
+            createSheet(sheet, name);
         }
     }
 
-    public void createSheet(JsonObject sheetJson, String name) {
-        JsonArray data = sheetJson.getAsJsonArray(DATA_ATTRIBUTE);
-        JsonObject config = sheetJson.getAsJsonObject(CONFIG_ATTRIBUTE);
-        Map<String, String> columnNames = loadColumnNames(config, data.get(0).getAsJsonObject());
+    public void createSheet(ReportSheet reportSheet, String name) {
+        Set<String> keys = getKeys(reportSheet.getData().getJSONObject(0));
         Sheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
 
-        createHeader(config, columnNames, autoSizeColumns, sheet);
-        createBody(data, config.get(BODY_ATTRIBUTE).getAsJsonObject(), columnNames.keySet(), sheet);
+        createHeader(reportSheet, keys, autoSizeColumns, sheet);
+        createBody(reportSheet.getData(), reportSheet.getBody(), keys, sheet);
 
         resizeColumns(autoSizeColumns, sheet);
     }
 
-    protected void createHeader(JsonObject config, Map<String, String> columnNames, List<Integer> autoSizeColumns, Sheet sheet) {
-        JsonObject column = config.getAsJsonObject(COLUMN_ATTRIBUTE);
-        JsonElement headerStyle = config.getAsJsonObject(HEADER_ATTRIBUTE);
-        Float height = getHeight(headerStyle.getAsJsonObject());
+    protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
+        Float height = null;
+        if (Objects.nonNull(reportSheet.getHeader()) && StringUtils.isNotBlank(reportSheet.getHeader().getHeight())) {
+            height = Float.parseFloat(reportSheet.getHeader().getHeight());
+        }
 
-        CellStyle cellStyle = createCellStyle(headerStyle.getAsJsonObject());
+        CellStyle cellStyle = createCellStyle(reportSheet.getHeader());
         Row row = sheet.createRow(startRowIndex);
 
         if (Objects.nonNull(height)) {
@@ -132,46 +85,47 @@ public class CreateReport implements Serializable {
         }
 
         int index = 0;
-        for (String key : columnNames.keySet()) {
+        for (String key : keys) {
             Cell cell = row.createCell(index);
-            cell.setCellValue(columnNames.get(key));
+
+            ColumnConfig columnConfig = reportSheet.getColumn(key);
+            String columnValue = Objects.nonNull(columnConfig) && Objects.nonNull(columnConfig.getLabel()) ?
+                    columnConfig.getLabel() : key;
+
+            cell.setCellValue(columnValue);
 
             if (Objects.nonNull(cellStyle)) {
                 cell.setCellStyle(cellStyle);
             }
 
             final int columnIndex = index++;
-            Optional.ofNullable(column.get(key)).ifPresent(obj ->
-                Optional.ofNullable(obj.getAsJsonObject().get(WIDTH_ATTRIBUTE)).ifPresentOrElse(width -> {
-                    String value = width.getAsString();
-                    if (StringUtils.isNotBlank(value)) {
-                        sheet.setColumnWidth(cell.getColumnIndex(), Integer.parseInt(width.getAsString()) + 4000);
-                    } else {
-                        autoSizeColumns.add(columnIndex);
-                    }
-                }, () -> autoSizeColumns.add(columnIndex)));
-            ;
+            Optional.ofNullable(columnConfig).ifPresent(column ->
+                    Optional.ofNullable(column.getWidth()).ifPresentOrElse(width -> {
+                        if (StringUtils.isNotBlank(width)) {
+                            sheet.setColumnWidth(cell.getColumnIndex(), Integer.parseInt(width) + 4000);
+                        } else {
+                            autoSizeColumns.add(columnIndex);
+                        }
+                    }, () -> autoSizeColumns.add(columnIndex)));
         }
     }
 
-    protected void createBody(JsonArray data, JsonObject bodyConfig, Set<String> keys, Sheet sheet) {
+    protected void createBody(JSONArray data, CellConfig bodyConfig, Set<String> keys, Sheet sheet) {
         int rowIndex = this.startRowIndex + 1;
         CellStyle cellStyle = createCellStyle(bodyConfig);
-        Float height = getHeight(bodyConfig);
 
-        for (JsonElement dataElement : data) {
+        for (Object element : data) {
             int columnIndex = this.startColumnIndex;
             Row row = sheet.createRow(rowIndex++);
-            if (Objects.nonNull(height)) {
-                row.setHeightInPoints(height);
+            if (Objects.nonNull(bodyConfig) && StringUtils.isNotBlank(bodyConfig.getHeight())) {
+                row.setHeightInPoints(Float.parseFloat(bodyConfig.getHeight()));
             }
 
-            JsonObject dataObject = dataElement.getAsJsonObject();
             for (String key : keys) {
                 Cell cell = row.createCell(columnIndex++);
 
-                Optional.ofNullable(dataObject.get(key)).ifPresentOrElse(
-                        value -> cell.setCellValue(value.getAsString()),
+                Optional.ofNullable(((JSONObject) element).get(key)).ifPresentOrElse(
+                        value -> cell.setCellValue(value.toString()),
                         () -> cell.setCellValue(""));
 
                 if (Objects.nonNull(cellStyle)) {
@@ -181,103 +135,79 @@ public class CreateReport implements Serializable {
         }
     }
 
-    protected float getHeight(JsonObject configStyleElement) {
-        Float height = null;
-
-        JsonElement heightElement = configStyleElement.get(HEIGHT_ATTRIBUTE);
-        if (Objects.nonNull(heightElement)) {
-            String heightAttribute = heightElement.getAsString();
-            if (StringUtils.isNotBlank(heightAttribute) && StringUtils.isNumeric(heightAttribute)) {
-                height = Float.parseFloat(heightAttribute);
-            }
-        }
-
-        return height;
-    }
-
-    protected CellStyle createCellStyle(JsonObject styleConfig) {
+    protected CellStyle createCellStyle(CellConfig styleConfig) {
         if (Objects.isNull(styleConfig)) {
             return null;
         }
         CellStyle cellStyle = this.workbook.createCellStyle();
         Font font = this.workbook.createFont();
 
-        Optional.ofNullable(styleConfig.get(BACKGROUND_ATTRIBUTE)).ifPresent(obj -> {
-            String color = obj.getAsString();
-            if (StringUtils.isNotBlank(color)) {
-                cellStyle.setFillBackgroundColor(createColor(color).getIndex());
+        Optional.ofNullable(styleConfig.getBackground()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                cellStyle.setFillBackgroundColor(createColor(obj).getIndex());
             }
         });
 
-        Optional.ofNullable(styleConfig.get(FOREGROUND_ATTRIBUTE)).ifPresent(obj -> {
-            String color = obj.getAsString();
-            if (StringUtils.isNotBlank(color)) {
-                font.setColor(createColor(color).getIndex());
+        Optional.ofNullable(styleConfig.getForeground()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                font.setColor(createColor(obj).getIndex());
             }
         });
 
-        Optional.ofNullable(styleConfig.get(FONT_SIZE_ATTRIBUTE)).ifPresent(obj -> {
-            String size = obj.getAsString();
-            if (StringUtils.isNotBlank(size)) {
-                font.setFontHeightInPoints(Short.parseShort(size));
+        Optional.ofNullable(styleConfig.getFontSize()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                font.setFontHeightInPoints(Short.parseShort(obj));
             }
         });
 
-        Optional.ofNullable(styleConfig.get(FONT_NAME_ATTRIBUTE)).ifPresent(obj -> {
-            String fontName = obj.getAsString();
-            if (StringUtils.isNotBlank(fontName)) {
-                font.setFontName(fontName);
+        Optional.ofNullable(styleConfig.getFontFamily()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                font.setFontName(obj);
             }
         });
 
-        Optional.ofNullable(styleConfig.get(FONT_BOLD_ATTRIBUTE)).ifPresent(obj -> {
-            String fontBold = obj.getAsString();
-            if (StringUtils.isNotBlank(fontBold)) {
-                font.setBold(Boolean.parseBoolean(fontBold));
+        Optional.ofNullable(styleConfig.getFontBold()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                font.setBold(Boolean.parseBoolean(obj));
             }
         });
 
-        Optional.ofNullable(styleConfig.get(FONT_ITALIC_ATTRIBUTE)).ifPresent(obj -> {
-            String fontItalic = obj.getAsString();
-            if (StringUtils.isNotBlank(fontItalic)) {
-                font.setItalic(Boolean.parseBoolean(fontItalic));
+        Optional.ofNullable(styleConfig.getFontItalic()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                font.setItalic(Boolean.parseBoolean(obj));
             }
         });
 
-        Optional.ofNullable(styleConfig.get(BORDER_ATTRIBUTE)).ifPresent(obj -> {
-            JsonObject border = obj.getAsJsonObject();
-            Optional.ofNullable(border.get(TYPE_ATTRIBUTE)).ifPresent(typeObj -> {
-                String type = typeObj.getAsString();
-                if (StringUtils.isNotBlank(type)) {
-                    if (StringUtils.isNumeric(type)) {
-                        cellStyle.setBorderTop(BorderStyle.valueOf(Short.parseShort(type)));
-                        cellStyle.setBorderRight(BorderStyle.valueOf(Short.parseShort(type)));
-                        cellStyle.setBorderBottom(BorderStyle.valueOf(Short.parseShort(type)));
-                        cellStyle.setBorderLeft(BorderStyle.valueOf(Short.parseShort(type)));
-                    } else {
-                        cellStyle.setBorderTop(BorderStyle.valueOf(type.toUpperCase()));
-                        cellStyle.setBorderRight(BorderStyle.valueOf(type.toUpperCase()));
-                        cellStyle.setBorderBottom(BorderStyle.valueOf(type.toUpperCase()));
-                        cellStyle.setBorderLeft(BorderStyle.valueOf(type.toUpperCase()));
-                    }
+        Optional.ofNullable(styleConfig.getBorderType()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                if (StringUtils.isNumeric(obj)) {
+                    cellStyle.setBorderTop(BorderStyle.valueOf(Short.parseShort(obj)));
+                    cellStyle.setBorderRight(BorderStyle.valueOf(Short.parseShort(obj)));
+                    cellStyle.setBorderBottom(BorderStyle.valueOf(Short.parseShort(obj)));
+                    cellStyle.setBorderLeft(BorderStyle.valueOf(Short.parseShort(obj)));
+                } else {
+                    cellStyle.setBorderTop(BorderStyle.valueOf(obj.toUpperCase()));
+                    cellStyle.setBorderRight(BorderStyle.valueOf(obj.toUpperCase()));
+                    cellStyle.setBorderBottom(BorderStyle.valueOf(obj.toUpperCase()));
+                    cellStyle.setBorderLeft(BorderStyle.valueOf(obj.toUpperCase()));
                 }
-            });
-            Optional.ofNullable(border.get(COLOR_ATTRIBUTE)).ifPresent(colorObj -> {
-                String color = colorObj.getAsString();
-                if (StringUtils.isNotBlank(color)) {
-                    if (StringUtils.isNumeric(color)) {
-                        cellStyle.setTopBorderColor(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
-                        cellStyle.setRightBorderColor(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
-                        cellStyle.setBottomBorderColor(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
-                        cellStyle.setLeftBorderColor(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
-                    } else {
-                        cellStyle.setTopBorderColor(IndexedColors.valueOf(color.toUpperCase()).getIndex());
-                        cellStyle.setRightBorderColor(IndexedColors.valueOf(color.toUpperCase()).getIndex());
-                        cellStyle.setBottomBorderColor(IndexedColors.valueOf(color.toUpperCase()).getIndex());
-                        cellStyle.setLeftBorderColor(IndexedColors.valueOf(color.toUpperCase()).getIndex());
-                    }
+            }
+        });
+
+        Optional.ofNullable(styleConfig.getBorderColor()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                if (StringUtils.isNumeric(obj)) {
+                    cellStyle.setTopBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
+                    cellStyle.setRightBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
+                    cellStyle.setBottomBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
+                    cellStyle.setLeftBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
+                } else {
+                    cellStyle.setTopBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
+                    cellStyle.setRightBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
+                    cellStyle.setBottomBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
+                    cellStyle.setLeftBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
                 }
-            });
+            }
         });
 
         cellStyle.setFont(font);
@@ -334,11 +264,11 @@ public class CreateReport implements Serializable {
         return file;
     }
 
-    public static byte[] createXLS(JsonObject json) {
+    public static byte[] createXLS(Report report) {
         byte[] bytes = {};
         try {
-            CreateReport report = new CreateReport(json);
-            File file = report.build();
+            CreateReport createReport = new CreateReport(report);
+            File file = createReport.build();
             FileInputStream inputStream = new FileInputStream(file);
             bytes = new byte[(int) file.length()];
             inputStream.read(bytes);
@@ -348,5 +278,4 @@ public class CreateReport implements Serializable {
         }
         return bytes;
     }
-
 }

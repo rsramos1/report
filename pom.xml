@@ -17,6 +17,7 @@
         <java.version>17</java.version>
         <jasperreport-version>6.19.1</jasperreport-version>
         <apache-poi-ooxml-version>5.2.2</apache-poi-ooxml-version>
+        <json-version>20220320</json-version>
     </properties>
     <dependencies>
 
@@ -82,8 +83,9 @@
             <version>${apache-poi-ooxml-version}</version>
         </dependency>
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${json-version}</version>
         </dependency>
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
