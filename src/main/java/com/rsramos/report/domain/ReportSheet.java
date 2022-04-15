@@ -1,10 +1,9 @@
 package com.rsramos.report.domain;
 
-import org.json.JSONArray;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ReportSheet implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -13,7 +12,7 @@ public class ReportSheet implements Serializable {
     private CellConfig header;
     private CellConfig body;
     private List<ColumnConfig> columns = new ArrayList<>();
-    private JSONArray data;
+    private List<Map<String, String>> data;
 
     public String getName() {
         return name;
@@ -47,17 +46,17 @@ public class ReportSheet implements Serializable {
         this.columns = columns;
     }
 
-    public JSONArray getData() {
+    public List<Map<String, String>> getData() {
         return data;
     }
 
-    public void setData(JSONArray data) {
+    public void setData(List<Map<String, String>> data) {
         this.data = data;
     }
 
     public ColumnConfig getColumn(String field) {
-        for(ColumnConfig column : getColumns()) {
-            if(field.equals(column.getField())){
+        for (ColumnConfig column : getColumns()) {
+            if (field.equals(column.getField())) {
                 return column;
             }
         }

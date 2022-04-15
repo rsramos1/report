@@ -8,6 +8,7 @@ public class ColumnConfig implements Serializable {
     private String field;
     private String label;
     private String width;
+    private String type;
 
     public String getField() {
         return field;
@@ -31,5 +32,13 @@ public class ColumnConfig implements Serializable {
 
     public void setWidth(String width) {
         this.width = width;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

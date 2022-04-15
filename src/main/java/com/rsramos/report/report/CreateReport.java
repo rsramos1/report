@@ -10,10 +10,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFColor;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.io.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class CreateReport implements Serializable {
@@ -41,7 +41,7 @@ public class CreateReport implements Serializable {
         this(json, 0, 0);
     }
 
-    protected Set<String> getKeys(JSONObject data) {
+    protected Set<String> getKeys(Map<String, String> data) {
         Set<String> keys = new HashSet<>();
         try {
             new ObjectMapper().readTree(data.toString()).fieldNames().forEachRemaining(keys::add);
@@ -61,12 +61,12 @@ public class CreateReport implements Serializable {
     }
 
     public void createSheet(ReportSheet reportSheet, String name) {
-        Set<String> keys = getKeys(reportSheet.getData().getJSONObject(0));
+        Set<String> keys = getKeys(reportSheet.getData().get(0));
         Sheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
 
         createHeader(reportSheet, keys, autoSizeColumns, sheet);
-        createBody(reportSheet.getData(), reportSheet.getBody(), keys, sheet);
+        createBody(reportSheet, keys, sheet);
 
         resizeColumns(autoSizeColumns, sheet);
     }
@@ -110,28 +110,80 @@ public class CreateReport implements Serializable {
         }
     }
 
-    protected void createBody(JSONArray data, CellConfig bodyConfig, Set<String> keys, Sheet sheet) {
+    protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
         int rowIndex = this.startRowIndex + 1;
-        CellStyle cellStyle = createCellStyle(bodyConfig);
+        CellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
-        for (Object element : data) {
+        for (Map<String, String> element : reportSheet.getData()) {
             int columnIndex = this.startColumnIndex;
             Row row = sheet.createRow(rowIndex++);
-            if (Objects.nonNull(bodyConfig) && StringUtils.isNotBlank(bodyConfig.getHeight())) {
-                row.setHeightInPoints(Float.parseFloat(bodyConfig.getHeight()));
-            }
 
             for (String key : keys) {
                 Cell cell = row.createCell(columnIndex++);
 
-                Optional.ofNullable(((JSONObject) element).get(key)).ifPresentOrElse(
-                        value -> cell.setCellValue(value.toString()),
-                        () -> cell.setCellValue(""));
+                setCellValue(cell, element.get(key), reportSheet.getColumn(key));
 
                 if (Objects.nonNull(cellStyle)) {
                     cell.setCellStyle(cellStyle);
                 }
             }
+
+            if (Objects.nonNull(reportSheet.getBody()) && StringUtils.isNotBlank(reportSheet.getBody().getHeight())) {
+                row.setHeightInPoints(Float.parseFloat(reportSheet.getBody().getHeight()));
+            }
+        }
+    }
+
+    protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
+        boolean config = Objects.nonNull(columnConfig) && StringUtils.isNotBlank(columnConfig.getType());
+        if (Objects.nonNull(value)) {
+            if (config && !StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "STRING")) {
+                String type = columnConfig.getType().trim();
+                if (!StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
+                        "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
+                    cell.setCellValue(Double.parseDouble(value));
+                } else if (!StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
+                    cell.setCellValue(Boolean.parseBoolean(value));
+                } else if (!StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
+                    if (StringUtils.contains(value, "-")) {
+                        cell.setCellValue(LocalDate.parse(value));
+                    } else {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(StringUtils.substring(value, 0, 4));
+                        sb.append("-");
+                        sb.append(StringUtils.substring(value, 4, 6));
+                        sb.append("-");
+                        sb.append(StringUtils.substring(value, 6, 8));
+                        cell.setCellValue(LocalDate.parse(sb.toString()));
+                    }
+                } else if (!StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
+                    if (StringUtils.contains(value, "-")) {
+                        cell.setCellValue(LocalDateTime.parse(value));
+                    } else {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(StringUtils.substring(value, 0, 4));
+                        sb.append("-");
+                        sb.append(StringUtils.substring(value, 4, 6));
+                        sb.append("-");
+                        sb.append(StringUtils.substring(value, 6, 8));
+                        sb.append("T");
+                        sb.append(StringUtils.substring(value, 8, 10));
+                        sb.append(":");
+                        sb.append(StringUtils.substring(value, 10, 12));
+                        sb.append(":");
+                        sb.append(StringUtils.substring(value, 12, 14));
+                        cell.setCellValue(LocalDateTime.parse(sb.toString()));
+                    }
+                } else if (!StringUtils.equalsIgnoreCase(type, "DATE")) {
+                    cell.setCellValue(new Date(Long.parseLong(value)));
+                } else if (!StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
+                    cell.setCellValue(Calendar.getInstance());
+                }
+            } else {
+                cell.setCellValue(value);
+            }
+        } else if (config && StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "CALENDAR")) {
+            cell.setCellValue(Calendar.getInstance());
         }
     }
 
