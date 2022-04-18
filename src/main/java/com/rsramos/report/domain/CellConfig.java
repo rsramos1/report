@@ -5,21 +5,21 @@ import java.io.Serializable;
 public class CellConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private String height;
+    private Float height;
     private String background;
     private String foreground;
-    private String fontSize;
+    private Short fontSize;
     private String fontFamily;
-    private String fontBold;
-    private String fontItalic;
+    private Boolean fontBold;
+    private Boolean fontItalic;
     private String borderType;
     private String borderColor;
 
-    public String getHeight() {
+    public Float getHeight() {
         return height;
     }
 
-    public void setHeight(String height) {
+    public void setHeight(Float height) {
         this.height = height;
     }
 
@@ -39,11 +39,11 @@ public class CellConfig implements Serializable {
         this.foreground = foreground;
     }
 
-    public String getFontSize() {
+    public Short getFontSize() {
         return fontSize;
     }
 
-    public void setFontSize(String fontSize) {
+    public void setFontSize(Short fontSize) {
         this.fontSize = fontSize;
     }
 
@@ -55,19 +55,19 @@ public class CellConfig implements Serializable {
         this.fontFamily = fontFamily;
     }
 
-    public String getFontBold() {
+    public Boolean getFontBold() {
         return fontBold;
     }
 
-    public void setFontBold(String fontBold) {
+    public void setFontBold(Boolean fontBold) {
         this.fontBold = fontBold;
     }
 
-    public String getFontItalic() {
+    public Boolean getFontItalic() {
         return fontItalic;
     }
 
-    public void setFontItalic(String fontItalic) {
+    public void setFontItalic(Boolean fontItalic) {
         this.fontItalic = fontItalic;
     }
 

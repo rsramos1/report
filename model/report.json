@@ -1,66 +1,69 @@
 {
-    "fileName": "relatorio",
-    "extension": "xlsx",
-    "sheets": [
+  "fileName": "relatorio",
+  "extension": "xlsx",
+  "sheets": [
+    {
+      "name": "relatorioExcel",
+      "header": {
+        "height": 30,
+        "background": "#404A53",
+        "foreground": "#FFF",
+        "fontSize": 15,
+        "fontFamily": "Tahoma",
+        "fontBold": true,
+        "fontItalic": false,
+        "borderType": "thin",
+        "borderColor": "black"
+      },
+      "body": {
+        "height": 30,
+        "background": "#FFF",
+        "foreground": "#000",
+        "fontSize": 15,
+        "fontFamily": "Tahoma",
+        "fontFormat": "bold",
+        "fontBold": false,
+        "fontItalic": false,
+        "borderType": "thin",
+        "borderColor": "black"
+      },
+      "columns": [
         {
-            "name": "relatorioExcel",
-            "header": {
-                "height": "30",
-                "background": "#FFF",
-                "foreground": "#FFF",
-                "fontSize": "15",
-                "fontFamily": "Tahoma",
-                "fontBold": "true",
-                "fontItalic": "false",
-                "borderType": "thin",
-                "borderColor": "black"
-            },
-            "body": {
-                "height": "30",
-                "background": "#FFF",
-                "foreground": "#FFF",
-                "fontSize": "15",
-                "fontFamily": "Tahoma",
-                "fontFormat": "bold",
-                "fontBold": "true",
-                "fontItalic": "false",
-                "borderType": "thin",
-                "borderColor": "black"
-            },
-            "column": [
-                {
-                    "field": "name",
-                    "label": "Nome",
-                    "Width": "15"
-                },
-                {
-                    "field": "descricao",
-                    "label": "Descrição",
-                    "Width": "15"
-                },
-                {
-                    "field": "idade",
-                    "label": "Idade",
-                    "Width": "15"
-                }
-            ],
-            "data": [
-                {
-                    "nome": "João",
-                    "descricao": "humano",
-                    "idade": "27"
-                },
-                {
-                    "nome": "Maria",
-                    "descricao": "humana",
-                    "idade": "22"
-                },
-                {
-                    "nome": "José",
-                    "descricao": "carinha",
-                    "idade": "22"
-                }
-            ]
+          "field": "nome",
+          "label": "Nome",
+          "width": 30,
+          "type": "STRING"
+        },
+        {
+          "field": "descricao",
+          "label": "Descrição",
+          "width": 50,
+          "type": "STRING"
+        },
+        {
+          "field": "idade",
+          "label": "Idade",
+          "width": 15,
+          "type": "INTEGER"
         }
-    ]
+      ],
+      "data": [
+        {
+          "nome": "João",
+          "descricao": "humano",
+          "idade": "27"
+        },
+        {
+          "nome": "Maria",
+          "descricao": "humana",
+          "idade": "22"
+        },
+        {
+          "nome": "José",
+          "descricao": "carinha que mora logo ali",
+          "idade": "22"
+        }
+      ]
+    }
+  ]
 }

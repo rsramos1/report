@@ -1,11 +1,10 @@
 package com.rsramos.report.report;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rsramos.report.domain.CellConfig;
 import com.rsramos.report.domain.ColumnConfig;
 import com.rsramos.report.domain.Report;
 import com.rsramos.report.domain.ReportSheet;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -22,16 +21,12 @@ public class CreateReport implements Serializable {
     private static final long serialVersionUID = 1L;
 
     protected Workbook workbook;
-    private final String fileName;
-    private final String extension;
     private final int startRowIndex;
     private final int startColumnIndex;
 
     private final Report report;
 
     protected CreateReport(Report report, int startRowIndex, int startColumnIndex) {
-        this.fileName = StringUtils.defaultIfBlank(report.getFileName(), "report");
-        this.extension = StringUtils.defaultIfBlank(report.getExtension(), "xls");
         this.report = report;
         this.startRowIndex = startRowIndex;
         this.startColumnIndex = startColumnIndex;
@@ -39,16 +34,6 @@ public class CreateReport implements Serializable {
 
     protected CreateReport(Report json) {
         this(json, 0, 0);
-    }
-
-    protected Set<String> getKeys(Map<String, String> data) {
-        Set<String> keys = new HashSet<>();
-        try {
-            new ObjectMapper().readTree(data.toString()).fieldNames().forEachRemaining(keys::add);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        return keys;
     }
 
     protected void createWorkbook() {
@@ -61,7 +46,7 @@ public class CreateReport implements Serializable {
     }
 
     public void createSheet(ReportSheet reportSheet, String name) {
-        Set<String> keys = getKeys(reportSheet.getData().get(0));
+        Set<String> keys = reportSheet.getData().get(0).keySet();
         Sheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
 
@@ -73,8 +58,8 @@ public class CreateReport implements Serializable {
 
     protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
         Float height = null;
-        if (Objects.nonNull(reportSheet.getHeader()) && StringUtils.isNotBlank(reportSheet.getHeader().getHeight())) {
-            height = Float.parseFloat(reportSheet.getHeader().getHeight());
+        if (Objects.nonNull(reportSheet.getHeader()) && Objects.nonNull(reportSheet.getHeader().getHeight())) {
+            height = reportSheet.getHeader().getHeight();
         }
 
         CellStyle cellStyle = createCellStyle(reportSheet.getHeader());
@@ -101,8 +86,8 @@ public class CreateReport implements Serializable {
             final int columnIndex = index++;
             Optional.ofNullable(columnConfig).ifPresent(column ->
                     Optional.ofNullable(column.getWidth()).ifPresentOrElse(width -> {
-                        if (StringUtils.isNotBlank(width)) {
-                            sheet.setColumnWidth(cell.getColumnIndex(), Integer.parseInt(width) + 4000);
+                        if (Objects.nonNull(width)) {
+                            sheet.setColumnWidth(cell.getColumnIndex(), width + 4000);
                         } else {
                             autoSizeColumns.add(columnIndex);
                         }
@@ -128,8 +113,8 @@ public class CreateReport implements Serializable {
                 }
             }
 
-            if (Objects.nonNull(reportSheet.getBody()) && StringUtils.isNotBlank(reportSheet.getBody().getHeight())) {
-                row.setHeightInPoints(Float.parseFloat(reportSheet.getBody().getHeight()));
+            if (Objects.nonNull(reportSheet.getBody()) && Objects.nonNull(reportSheet.getBody().getHeight())) {
+                row.setHeightInPoints(reportSheet.getBody().getHeight());
             }
         }
     }
@@ -139,12 +124,12 @@ public class CreateReport implements Serializable {
         if (Objects.nonNull(value)) {
             if (config && !StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "STRING")) {
                 String type = columnConfig.getType().trim();
-                if (!StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
+                if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
                         "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
                     cell.setCellValue(Double.parseDouble(value));
-                } else if (!StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
                     cell.setCellValue(Boolean.parseBoolean(value));
-                } else if (!StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
                     if (StringUtils.contains(value, "-")) {
                         cell.setCellValue(LocalDate.parse(value));
                     } else {
@@ -156,9 +141,9 @@ public class CreateReport implements Serializable {
                         sb.append(StringUtils.substring(value, 6, 8));
                         cell.setCellValue(LocalDate.parse(sb.toString()));
                     }
-                } else if (!StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
                     if (StringUtils.contains(value, "-")) {
-                        cell.setCellValue(LocalDateTime.parse(value));
+                        cell.setCellValue(LocalDateTime.parse(value.toUpperCase()));
                     } else {
                         StringBuilder sb = new StringBuilder();
                         sb.append(StringUtils.substring(value, 0, 4));
@@ -174,9 +159,9 @@ public class CreateReport implements Serializable {
                         sb.append(StringUtils.substring(value, 12, 14));
                         cell.setCellValue(LocalDateTime.parse(sb.toString()));
                     }
-                } else if (!StringUtils.equalsIgnoreCase(type, "DATE")) {
+                } else if (StringUtils.equalsIgnoreCase(type, "DATE")) {
                     cell.setCellValue(new Date(Long.parseLong(value)));
-                } else if (!StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
+                } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
                     cell.setCellValue(Calendar.getInstance());
                 }
             } else {
@@ -207,8 +192,8 @@ public class CreateReport implements Serializable {
         });
 
         Optional.ofNullable(styleConfig.getFontSize()).ifPresent(obj -> {
-            if (StringUtils.isNotBlank(obj)) {
-                font.setFontHeightInPoints(Short.parseShort(obj));
+            if (Objects.nonNull(obj)) {
+                font.setFontHeightInPoints(obj);
             }
         });
 
@@ -219,14 +204,14 @@ public class CreateReport implements Serializable {
         });
 
         Optional.ofNullable(styleConfig.getFontBold()).ifPresent(obj -> {
-            if (StringUtils.isNotBlank(obj)) {
-                font.setBold(Boolean.parseBoolean(obj));
+            if (Objects.nonNull(obj)) {
+                font.setBold(obj);
             }
         });
 
         Optional.ofNullable(styleConfig.getFontItalic()).ifPresent(obj -> {
-            if (StringUtils.isNotBlank(obj)) {
-                font.setItalic(Boolean.parseBoolean(obj));
+            if (Objects.nonNull(obj)) {
+                font.setItalic(obj);
             }
         });
 
@@ -300,7 +285,9 @@ public class CreateReport implements Serializable {
         File file = null;
         FileOutputStream outputStream = null;
         try {
-            file = File.createTempFile(this.fileName, this.extension);
+            String fileName = StringUtils.defaultIfBlank(this.report.getFileName(), "report");
+            String extension = StringUtils.defaultIfBlank(this.report.getExtension(), "xls");
+            file = File.createTempFile(fileName, extension);
             outputStream = new FileOutputStream(file);
             workbook.write(outputStream);
         } catch (IOException e) {

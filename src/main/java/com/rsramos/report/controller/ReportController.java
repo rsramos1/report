@@ -37,7 +37,7 @@ public class ReportController {
             file.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.write(service.createXLS(report));
-//            outputStream.flush();
+            outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
