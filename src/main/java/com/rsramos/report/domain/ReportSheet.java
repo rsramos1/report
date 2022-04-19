@@ -9,8 +9,8 @@ public class ReportSheet implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String name;
-    private CellConfig header;
-    private CellConfig body;
+    private CellConfig header = new CellConfig();
+    private CellConfig body = new CellConfig();
     private List<ColumnConfig> columns = new ArrayList<>();
     private List<Map<String, String>> data;
 

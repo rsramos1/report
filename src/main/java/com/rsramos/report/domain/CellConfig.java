@@ -5,6 +5,8 @@ import java.io.Serializable;
 public class CellConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    private int startRow;
+    private int startColumn;
     private Float height;
     private String background;
     private String foreground;
@@ -16,6 +18,22 @@ public class CellConfig implements Serializable {
     private String borderColor;
     private String verticalAlign;
     private String horizontalAlign;
+
+    public int getStartRow() {
+        return startRow;
+    }
+
+    public void setStartRow(int startRow) {
+        this.startRow = startRow;
+    }
+
+    public int getStartColumn() {
+        return startColumn;
+    }
+
+    public void setStartColumn(int startColumn) {
+        this.startColumn = startColumn;
+    }
 
     public Float getHeight() {
         return height;

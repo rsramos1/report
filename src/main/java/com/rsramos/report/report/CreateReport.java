@@ -19,27 +19,19 @@ public class CreateReport implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected XSSFWorkbook workbook;''
-    private final int startRowIndex;
-    private final int startColumnIndex;
+    protected XSSFWorkbook workbook;
 
     private final Report report;
 
-    protected CreateReport(Report report, int startRowIndex, int startColumnIndex) {
+    protected CreateReport(Report report) {
         this.report = report;
-        this.startRowIndex = startRowIndex;
-        this.startColumnIndex = startColumnIndex;
-    }
-
-    protected CreateReport(Report json) {
-        this(json, 0, 0);
     }
 
     protected void createWorkbook() {
         this.workbook = new XSSFWorkbook();
-        int indice = 1;
         for (ReportSheet sheet : this.report.getSheets()) {
-            String name = StringUtils.defaultIfBlank(sheet.getName(), StringUtils.join("Plan", indice++));
+            String name = StringUtils.defaultIfBlank(sheet.getName(),
+                    StringUtils.join("Plan", report.getSheets().indexOf(sheet) + 1));
             createSheet(sheet, name);
         }
     }
@@ -56,131 +48,103 @@ public class CreateReport implements Serializable {
     }
 
     protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, XSSFSheet sheet) {
-        Float height = null;
-        if (Objects.nonNull(reportSheet.getHeader()) && Objects.nonNull(reportSheet.getHeader().getHeight())) {
-            height = reportSheet.getHeader().getHeight();
-        }
-
         XSSFCellStyle cellStyle = createCellStyle(reportSheet.getHeader());
-        XSSFRow row = sheet.createRow(startRowIndex);
+        XSSFRow row = sheet.createRow(reportSheet.getHeader().getStartRow());
+        Optional.ofNullable(reportSheet.getHeader().getHeight()).ifPresent(row::setHeightInPoints);
 
-        if (Objects.nonNull(height)) {
-            row.setHeightInPoints(height);
-        }
-
-        int index = 0;
+        int index = reportSheet.getHeader().getStartColumn();
         for (String key : keys) {
-            XSSFCell cell = row.createCell(index);
-
             ColumnConfig columnConfig = reportSheet.getColumn(key);
-            String columnValue = Objects.nonNull(columnConfig) && Objects.nonNull(columnConfig.getLabel()) ?
-                    columnConfig.getLabel() : key;
-
-            cell.setCellValue(columnValue);
-
-            if (Objects.nonNull(cellStyle)) {
-                cell.setCellStyle(cellStyle);
+            if (StringUtils.isNotBlank(columnConfig.getWidth())) {
+                if (StringUtils.isNumeric(columnConfig.getWidth())) {
+                    sheet.setColumnWidth(index, Integer.parseInt(columnConfig.getWidth()));
+                } else if (StringUtils.equalsIgnoreCase("AUTO", columnConfig.getWidth().trim())) {
+                    autoSizeColumns.add(index);
+                }
             }
 
-            final int columnIndex = index++;
-            Optional.ofNullable(columnConfig).ifPresent(column ->
-                    Optional.ofNullable(column.getWidth()).ifPresentOrElse(width -> {
-                        if (Objects.nonNull(width)) {
-                            sheet.setColumnWidth(cell.getColumnIndex(), width + 4000);
-                        } else {
-                            autoSizeColumns.add(columnIndex);
-                        }
-                    }, () -> autoSizeColumns.add(columnIndex)));
+            XSSFCell cell = row.createCell(index++);
+            cell.setCellValue(Objects.nonNull(columnConfig.getLabel()) ? columnConfig.getLabel() : key);
+            Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
         }
     }
 
     protected void createBody(ReportSheet reportSheet, Set<String> keys, XSSFSheet sheet) {
-        int rowIndex = this.startRowIndex + 1;
         XSSFCellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
+        int rowIndex = reportSheet.getHeader().getStartRow() >= reportSheet.getBody().getStartRow() ?
+                reportSheet.getHeader().getStartRow() + 1 :
+                reportSheet.getBody().getStartRow();
         for (Map<String, String> element : reportSheet.getData()) {
-            int columnIndex = this.startColumnIndex;
+            int columnIndex = reportSheet.getBody().getStartRow();
             XSSFRow row = sheet.createRow(rowIndex++);
+            Optional.ofNullable(reportSheet.getBody().getHeight()).ifPresent(row::setHeightInPoints);
 
             for (String key : keys) {
                 XSSFCell cell = row.createCell(columnIndex++);
-
                 setCellValue(cell, element.get(key), reportSheet.getColumn(key));
-
-                if (Objects.nonNull(cellStyle)) {
-                    cell.setCellStyle(cellStyle);
-                }
-            }
-
-            if (Objects.nonNull(reportSheet.getBody()) && Objects.nonNull(reportSheet.getBody().getHeight())) {
-                row.setHeightInPoints(reportSheet.getBody().getHeight());
+                Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
             }
         }
     }
 
     protected void setCellValue(XSSFCell cell, String value, ColumnConfig columnConfig) {
-        boolean config = Objects.nonNull(columnConfig) && StringUtils.isNotBlank(columnConfig.getType());
         if (Objects.nonNull(value)) {
-            if (config && !StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "STRING")) {
-                String type = columnConfig.getType().trim();
-                if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
-                        "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
-                    cell.setCellValue(Double.parseDouble(value));
-                } else if (StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
-                    cell.setCellValue(Boolean.parseBoolean(value));
-                } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
-                    if (StringUtils.contains(value, "-")) {
-                        cell.setCellValue(LocalDate.parse(value));
-                    } else {
-                        StringBuilder sb = new StringBuilder();
-                        sb.append(StringUtils.substring(value, 0, 4));
-                        sb.append("-");
-                        sb.append(StringUtils.substring(value, 4, 6));
-                        sb.append("-");
-                        sb.append(StringUtils.substring(value, 6, 8));
-                        cell.setCellValue(LocalDate.parse(sb.toString()));
-                    }
-                } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
-                    if (StringUtils.contains(value, "-")) {
-                        cell.setCellValue(LocalDateTime.parse(value.toUpperCase()));
-                    } else {
-                        StringBuilder sb = new StringBuilder();
-                        sb.append(StringUtils.substring(value, 0, 4));
-                        sb.append("-");
-                        sb.append(StringUtils.substring(value, 4, 6));
-                        sb.append("-");
-                        sb.append(StringUtils.substring(value, 6, 8));
-                        sb.append("T");
-                        sb.append(StringUtils.substring(value, 8, 10));
-                        sb.append(":");
-                        sb.append(StringUtils.substring(value, 10, 12));
-                        sb.append(":");
-                        sb.append(StringUtils.substring(value, 12, 14));
-                        cell.setCellValue(LocalDateTime.parse(sb.toString()));
-                    }
-                } else if (StringUtils.equalsIgnoreCase(type, "DATE")) {
-                    cell.setCellValue(new Date(Long.parseLong(value)));
-                } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
-                    cell.setCellValue(Calendar.getInstance());
+            String type = columnConfig.getType().trim();
+            if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
+                    "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
+                cell.setCellValue(Double.parseDouble(value));
+            } else if (StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
+                cell.setCellValue(Boolean.parseBoolean(value));
+            } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
+                if (StringUtils.contains(value, "-")) {
+                    cell.setCellValue(LocalDate.parse(value));
+                } else {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(StringUtils.substring(value, 0, 4));
+                    sb.append("-");
+                    sb.append(StringUtils.substring(value, 4, 6));
+                    sb.append("-");
+                    sb.append(StringUtils.substring(value, 6, 8));
+                    cell.setCellValue(LocalDate.parse(sb.toString()));
                 }
+            } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
+                if (StringUtils.contains(value, "-")) {
+                    cell.setCellValue(LocalDateTime.parse(value.toUpperCase()));
+                } else {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(StringUtils.substring(value, 0, 4));
+                    sb.append("-");
+                    sb.append(StringUtils.substring(value, 4, 6));
+                    sb.append("-");
+                    sb.append(StringUtils.substring(value, 6, 8));
+                    sb.append("T");
+                    sb.append(StringUtils.substring(value, 8, 10));
+                    sb.append(":");
+                    sb.append(StringUtils.substring(value, 10, 12));
+                    sb.append(":");
+                    sb.append(StringUtils.substring(value, 12, 14));
+                    cell.setCellValue(LocalDateTime.parse(sb.toString()));
+                }
+            } else if (StringUtils.equalsIgnoreCase(type, "DATE")) {
+                cell.setCellValue(new Date(Long.parseLong(value)));
+            } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
+                cell.setCellValue(Calendar.getInstance());
             } else {
                 cell.setCellValue(value);
             }
-        } else if (config && StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "CALENDAR")) {
+        } else if (StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "CALENDAR")) {
             cell.setCellValue(Calendar.getInstance());
         }
     }
 
     protected XSSFCellStyle createCellStyle(CellConfig styleConfig) {
-        if (Objects.isNull(styleConfig)) {
-            return null;
-        }
         XSSFCellStyle cellStyle = this.workbook.createCellStyle();
         XSSFFont font = this.workbook.createFont();
 
         Optional.ofNullable(styleConfig.getForeground()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                font.setColor(createColor(obj).getIndex());
+                font.setColor(createColor(obj));
             }
         });
 
@@ -233,17 +197,10 @@ public class CreateReport implements Serializable {
 
         Optional.ofNullable(styleConfig.getBorderColor()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                if (StringUtils.isNumeric(obj)) {
-                    cellStyle.setTopBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
-                    cellStyle.setRightBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
-                    cellStyle.setBottomBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
-                    cellStyle.setLeftBorderColor(IndexedColors.fromInt(Integer.parseInt(obj)).getIndex());
-                } else {
-                    cellStyle.setTopBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
-                    cellStyle.setRightBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
-                    cellStyle.setBottomBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
-                    cellStyle.setLeftBorderColor(IndexedColors.valueOf(obj.toUpperCase()).getIndex());
-                }
+                cellStyle.setTopBorderColor(createColor(obj));
+                cellStyle.setRightBorderColor(createColor(obj));
+                cellStyle.setBottomBorderColor(createColor(obj));
+                cellStyle.setLeftBorderColor(createColor(obj));
             }
         });
 
@@ -274,6 +231,7 @@ public class CreateReport implements Serializable {
     protected XSSFColor createColor(String color) {
         XSSFColor xssfColor = getDecodedColor(color);
         if (Objects.isNull(xssfColor)) {
+            xssfColor = new XSSFColor();
             if (StringUtils.isNumeric(color)) {
                 xssfColor.setIndexed(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
             } else {

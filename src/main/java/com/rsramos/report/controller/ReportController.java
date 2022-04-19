@@ -31,17 +31,20 @@ public class ReportController {
 
     @ResponseBody
     @PostMapping(path = "test/xls")
-    public void testCreateXLS(@RequestBody Report report) {
-        File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
+    public ResponseEntity<byte[]> testCreateXLS(@RequestBody Report report) {
+        byte[] ret = null;
         try {
+            ret = service.createXLS(report);
+            File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
             file.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(file);
-            outputStream.write(service.createXLS(report));
+            outputStream.write(ret);
             outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return ResponseEntity.ok(ret);
     }
 
 }

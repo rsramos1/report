@@ -7,7 +7,7 @@ public class ColumnConfig implements Serializable {
 
     private String field;
     private String label;
-    private Integer width;
+    private String width;
     private String type;
 
     public String getField() {
@@ -26,11 +26,11 @@ public class ColumnConfig implements Serializable {
         this.label = label;
     }
 
-    public Integer getWidth() {
+    public String getWidth() {
         return width;
     }
 
-    public void setWidth(Integer width) {
+    public void setWidth(String width) {
         this.width = width;
     }
 
