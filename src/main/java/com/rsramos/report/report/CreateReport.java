@@ -4,11 +4,10 @@ import com.rsramos.report.domain.CellConfig;
 import com.rsramos.report.domain.ColumnConfig;
 import com.rsramos.report.domain.Report;
 import com.rsramos.report.domain.ReportSheet;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.*;
+import org.bouncycastle.util.encoders.Hex;
 
 import java.io.*;
 import java.time.LocalDate;
@@ -20,7 +19,7 @@ public class CreateReport implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected Workbook workbook;
+    protected XSSFWorkbook workbook;''
     private final int startRowIndex;
     private final int startColumnIndex;
 
@@ -37,7 +36,7 @@ public class CreateReport implements Serializable {
     }
 
     protected void createWorkbook() {
-        this.workbook = new SXSSFWorkbook();
+        this.workbook = new XSSFWorkbook();
         int indice = 1;
         for (ReportSheet sheet : this.report.getSheets()) {
             String name = StringUtils.defaultIfBlank(sheet.getName(), StringUtils.join("Plan", indice++));
@@ -47,7 +46,7 @@ public class CreateReport implements Serializable {
 
     public void createSheet(ReportSheet reportSheet, String name) {
         Set<String> keys = reportSheet.getData().get(0).keySet();
-        Sheet sheet = this.workbook.createSheet(name);
+        XSSFSheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
 
         createHeader(reportSheet, keys, autoSizeColumns, sheet);
@@ -56,14 +55,14 @@ public class CreateReport implements Serializable {
         resizeColumns(autoSizeColumns, sheet);
     }
 
-    protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
+    protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, XSSFSheet sheet) {
         Float height = null;
         if (Objects.nonNull(reportSheet.getHeader()) && Objects.nonNull(reportSheet.getHeader().getHeight())) {
             height = reportSheet.getHeader().getHeight();
         }
 
-        CellStyle cellStyle = createCellStyle(reportSheet.getHeader());
-        Row row = sheet.createRow(startRowIndex);
+        XSSFCellStyle cellStyle = createCellStyle(reportSheet.getHeader());
+        XSSFRow row = sheet.createRow(startRowIndex);
 
         if (Objects.nonNull(height)) {
             row.setHeightInPoints(height);
@@ -71,7 +70,7 @@ public class CreateReport implements Serializable {
 
         int index = 0;
         for (String key : keys) {
-            Cell cell = row.createCell(index);
+            XSSFCell cell = row.createCell(index);
 
             ColumnConfig columnConfig = reportSheet.getColumn(key);
             String columnValue = Objects.nonNull(columnConfig) && Objects.nonNull(columnConfig.getLabel()) ?
@@ -95,16 +94,16 @@ public class CreateReport implements Serializable {
         }
     }
 
-    protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
+    protected void createBody(ReportSheet reportSheet, Set<String> keys, XSSFSheet sheet) {
         int rowIndex = this.startRowIndex + 1;
-        CellStyle cellStyle = createCellStyle(reportSheet.getBody());
+        XSSFCellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
         for (Map<String, String> element : reportSheet.getData()) {
             int columnIndex = this.startColumnIndex;
-            Row row = sheet.createRow(rowIndex++);
+            XSSFRow row = sheet.createRow(rowIndex++);
 
             for (String key : keys) {
-                Cell cell = row.createCell(columnIndex++);
+                XSSFCell cell = row.createCell(columnIndex++);
 
                 setCellValue(cell, element.get(key), reportSheet.getColumn(key));
 
@@ -119,7 +118,7 @@ public class CreateReport implements Serializable {
         }
     }
 
-    protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
+    protected void setCellValue(XSSFCell cell, String value, ColumnConfig columnConfig) {
         boolean config = Objects.nonNull(columnConfig) && StringUtils.isNotBlank(columnConfig.getType());
         if (Objects.nonNull(value)) {
             if (config && !StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "STRING")) {
@@ -172,22 +171,23 @@ public class CreateReport implements Serializable {
         }
     }
 
-    protected CellStyle createCellStyle(CellConfig styleConfig) {
+    protected XSSFCellStyle createCellStyle(CellConfig styleConfig) {
         if (Objects.isNull(styleConfig)) {
             return null;
         }
-        CellStyle cellStyle = this.workbook.createCellStyle();
-        Font font = this.workbook.createFont();
-
-        Optional.ofNullable(styleConfig.getBackground()).ifPresent(obj -> {
-            if (StringUtils.isNotBlank(obj)) {
-                cellStyle.setFillBackgroundColor(createColor(obj).getIndex());
-            }
-        });
+        XSSFCellStyle cellStyle = this.workbook.createCellStyle();
+        XSSFFont font = this.workbook.createFont();
 
         Optional.ofNullable(styleConfig.getForeground()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
                 font.setColor(createColor(obj).getIndex());
+            }
+        });
+
+        Optional.ofNullable(styleConfig.getBackground()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                cellStyle.setFillForegroundColor(createColor(obj));
+                cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             }
         });
 
@@ -247,36 +247,71 @@ public class CreateReport implements Serializable {
             }
         });
 
+        Optional.ofNullable(styleConfig.getHorizontalAlign()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                if (StringUtils.isNumeric(obj)) {
+                    cellStyle.setAlignment(HorizontalAlignment.forInt(Integer.parseInt(obj)));
+                } else {
+                    cellStyle.setAlignment(HorizontalAlignment.valueOf(obj.toUpperCase()));
+                }
+            }
+        });
+
+        Optional.ofNullable(styleConfig.getVerticalAlign()).ifPresent(obj -> {
+            if (StringUtils.isNotBlank(obj)) {
+                if (StringUtils.isNumeric(obj)) {
+                    cellStyle.setVerticalAlignment(VerticalAlignment.forInt(Integer.parseInt(obj)));
+                } else {
+                    cellStyle.setVerticalAlignment(VerticalAlignment.valueOf(obj.toUpperCase()));
+                }
+            }
+        });
+
         cellStyle.setFont(font);
         return cellStyle;
     }
 
     protected XSSFColor createColor(String color) {
-        XSSFColor xssfColor = new XSSFColor();
-        if (color.contains("#") || color.length() == 3 || color.length() == 6) {
-            color = color.replace("#", "");
-            if (color.length() == 3) {
-                color += color;
+        XSSFColor xssfColor = getDecodedColor(color);
+        if (Objects.isNull(xssfColor)) {
+            if (StringUtils.isNumeric(color)) {
+                xssfColor.setIndexed(IndexedColors.fromInt(Integer.parseInt(color)).getIndex());
+            } else {
+                xssfColor.setIndexed(IndexedColors.valueOf(color.toUpperCase()).getIndex());
             }
-            xssfColor.setARGBHex(color);
-        } else {
-            String[] rgb = color
-                    .replace("(", "").replace(")", "")
-                    .replace("R", "").replace("r", "")
-                    .replace("G", "").replace("g", "")
-                    .replace("B", "").replace("b", "")
-                    .split(",");
-
-            xssfColor.setRGB(new byte[]{
-                    (byte) (Integer.parseInt(rgb[0]) - 127),
-                    (byte) (Integer.parseInt(rgb[1]) - 127),
-                    (byte) (Integer.parseInt(rgb[2]) - 127)
-            });
         }
         return xssfColor;
     }
 
-    protected void resizeColumns(List<Integer> columns, Sheet sheet) {
+    protected XSSFColor getDecodedColor(String color) {
+        if (color.contains("#")) {
+            color = color.replace("#", "");
+            if (color.length() == 3) {
+                color += color;
+            }
+            return new XSSFColor(Hex.decode(color), null);
+        } else if (color.contains(",")) {
+            StringBuilder hex = new StringBuilder();
+            Arrays.stream(color.toUpperCase()
+                    .replace("(", "")
+                    .replace(")", "")
+                    .replace("R", "")
+                    .replace("G", "")
+                    .replace("B", "")
+                    .split(",")).forEach(rgb -> {
+                String aux = Integer.toHexString(Integer.parseInt(rgb));
+                if (aux.length() == 1) {
+                    hex.append("0");
+                }
+                hex.append(aux);
+            });
+
+            return new XSSFColor(Hex.decode(hex.toString()), null);
+        }
+        return null;
+    }
+
+    protected void resizeColumns(List<Integer> columns, XSSFSheet sheet) {
         columns.forEach(sheet::autoSizeColumn);
     }
 
@@ -287,7 +322,7 @@ public class CreateReport implements Serializable {
         try {
             String fileName = StringUtils.defaultIfBlank(this.report.getFileName(), "report");
             String extension = StringUtils.defaultIfBlank(this.report.getExtension(), "xls");
-            file = File.createTempFile(fileName, extension);
+            file = File.createTempFile(fileName, StringUtils.join(".", extension.replace(".", "")));
             outputStream = new FileOutputStream(file);
             workbook.write(outputStream);
         } catch (IOException e) {

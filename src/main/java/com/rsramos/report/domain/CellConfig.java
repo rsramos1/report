@@ -14,6 +14,8 @@ public class CellConfig implements Serializable {
     private Boolean fontItalic;
     private String borderType;
     private String borderColor;
+    private String verticalAlign;
+    private String horizontalAlign;
 
     public Float getHeight() {
         return height;
@@ -85,5 +87,21 @@ public class CellConfig implements Serializable {
 
     public void setBorderColor(String borderColor) {
         this.borderColor = borderColor;
+    }
+
+    public String getVerticalAlign() {
+        return verticalAlign;
+    }
+
+    public void setVerticalAlign(String verticalAlign) {
+        this.verticalAlign = verticalAlign;
+    }
+
+    public String getHorizontalAlign() {
+        return horizontalAlign;
+    }
+
+    public void setHorizontalAlign(String horizontalAlign) {
+        this.horizontalAlign = horizontalAlign;
     }
 }
