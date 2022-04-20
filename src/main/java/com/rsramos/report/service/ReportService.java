@@ -1,14 +1,14 @@
 package com.rsramos.report.service;
 
 import com.rsramos.report.domain.Report;
-import com.rsramos.report.report.CreateReport;
+import com.rsramos.report.report.CreateXLS;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ReportService {
 
     public byte[] createXLS(Report report) {
-        return CreateReport.createXLS(report);
+        return CreateXLS.createXLS(report);
     }
 
     public byte[] createPDF(Report report) {

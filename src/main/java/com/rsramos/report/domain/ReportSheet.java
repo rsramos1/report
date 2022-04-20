@@ -13,6 +13,7 @@ public class ReportSheet implements Serializable {
     private CellConfig body = new CellConfig();
     private List<ColumnConfig> columns = new ArrayList<>();
     private List<Map<String, String>> data;
+    private boolean autoFilter;
 
     public String getName() {
         return name;
@@ -52,6 +53,14 @@ public class ReportSheet implements Serializable {
 
     public void setData(List<Map<String, String>> data) {
         this.data = data;
+    }
+
+    public boolean isAutoFilter() {
+        return autoFilter;
+    }
+
+    public void setAutoFilter(boolean autoFilter) {
+        this.autoFilter = autoFilter;
     }
 
     public ColumnConfig getColumn(String field) {
