@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
@@ -69,8 +70,9 @@ public class CreateXLS extends CreateReport {
             ColumnConfig columnConfig = reportSheet.getColumn(key);
             if (StringUtils.isNotBlank(columnConfig.getWidth())) {
                 if (StringUtils.isNumeric(columnConfig.getWidth())) {
-                    sheet.setColumnWidth(index, (int) Math.round((Double.parseDouble(
-                            columnConfig.getWidth()) * 256.0D / 7.001699924468994D)));
+                    int width = (int) Math.round((Double.parseDouble(
+                            columnConfig.getWidth()) * 256.0D / 7.001699924468994D));
+                    sheet.setColumnWidth(index, width <= 65280 ? width : 65280);
                 } else if (StringUtils.equalsIgnoreCase("AUTO", columnConfig.getWidth().trim())) {
                     autoSizeColumns.add(index);
                 }
@@ -78,14 +80,18 @@ public class CreateXLS extends CreateReport {
 
             Cell cell = row.createCell(index++);
             cell.setCellValue(Objects.nonNull(columnConfig.getLabel()) ? columnConfig.getLabel() : key);
-            Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
+            cell.setCellStyle(cellStyle);
+        }
+        if (!autoSizeColumns.isEmpty()) {
+            ((SXSSFSheet) sheet).trackColumnsForAutoSizing(autoSizeColumns);
         }
     }
 
     protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
         CellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
-        int rowIndex = reportSheet.getBody().getStartRow();
+        int rowIndex = reportSheet.getBody().getStartRow() <= reportSheet.getHeader().getStartRow() ?
+                reportSheet.getHeader().getStartRow() + 1 : reportSheet.getBody().getStartRow();
         for (Map<String, String> element : reportSheet.getData()) {
             int columnIndex = reportSheet.getBody().getStartColumn();
             Row row = sheet.createRow(rowIndex++);
@@ -94,14 +100,14 @@ public class CreateXLS extends CreateReport {
             for (String key : keys) {
                 Cell cell = row.createCell(columnIndex++);
                 setCellValue(cell, element.get(key), reportSheet.getColumn(key));
-                Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
+                cell.setCellStyle(cellStyle);
             }
         }
     }
 
     protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
+        String type = StringUtils.defaultIfBlank(columnConfig.getType(), "").trim();
         if (Objects.nonNull(value)) {
-            String type = columnConfig.getType().trim();
             if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
                     "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
                 cell.setCellValue(Double.parseDouble(value));
@@ -144,7 +150,7 @@ public class CreateXLS extends CreateReport {
             } else {
                 cell.setCellValue(value);
             }
-        } else if (StringUtils.equalsIgnoreCase(columnConfig.getType().trim(), "CALENDAR")) {
+        } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
             cell.setCellValue(Calendar.getInstance());
         }
     }
@@ -178,60 +184,65 @@ public class CreateXLS extends CreateReport {
             }
         });
 
-        Optional.ofNullable(styleConfig.getFontBold()).ifPresent(obj -> {
-            if (Objects.nonNull(obj)) {
-                font.setBold(obj);
-            }
-        });
+        if (styleConfig.isFontBold()) {
+            font.setBold(true);
+        }
 
-        Optional.ofNullable(styleConfig.getFontItalic()).ifPresent(obj -> {
-            if (Objects.nonNull(obj)) {
-                font.setItalic(obj);
-            }
-        });
+        if (styleConfig.isFontItalic()) {
+            font.setItalic(true);
+        }
+
+        if (styleConfig.isFontUnderline() || styleConfig.isFontUnderlineSingle()) {
+            font.setUnderline(FontUnderline.SINGLE);
+        }
+
+        if (styleConfig.isFontUnderlineDouble()) {
+            font.setUnderline(FontUnderline.DOUBLE);
+        }
+
+        if (styleConfig.isFontUnderlineSingleAccounting()) {
+            font.setUnderline(FontUnderline.SINGLE_ACCOUNTING);
+        }
+
+        if (styleConfig.isFontUnderlineDoubleAccounting()) {
+            font.setUnderline(FontUnderline.DOUBLE_ACCOUNTING);
+        }
 
         Optional.ofNullable(styleConfig.getBorderType()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                if (StringUtils.isNumeric(obj)) {
-                    cellStyle.setBorderTop(BorderStyle.valueOf(Short.parseShort(obj)));
-                    cellStyle.setBorderRight(BorderStyle.valueOf(Short.parseShort(obj)));
-                    cellStyle.setBorderBottom(BorderStyle.valueOf(Short.parseShort(obj)));
-                    cellStyle.setBorderLeft(BorderStyle.valueOf(Short.parseShort(obj)));
-                } else {
-                    cellStyle.setBorderTop(BorderStyle.valueOf(obj.toUpperCase()));
-                    cellStyle.setBorderRight(BorderStyle.valueOf(obj.toUpperCase()));
-                    cellStyle.setBorderBottom(BorderStyle.valueOf(obj.toUpperCase()));
-                    cellStyle.setBorderLeft(BorderStyle.valueOf(obj.toUpperCase()));
-                }
+                BorderStyle borderStyle = StringUtils.isNumeric(obj) ?
+                        BorderStyle.valueOf(Short.parseShort(obj)) :
+                        BorderStyle.valueOf(obj.toUpperCase());
+                cellStyle.setBorderTop(borderStyle);
+                cellStyle.setBorderRight(borderStyle);
+                cellStyle.setBorderBottom(borderStyle);
+                cellStyle.setBorderLeft(borderStyle);
             }
         });
 
         Optional.ofNullable(styleConfig.getBorderColor()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                cellStyle.setTopBorderColor(createColor(obj));
-                cellStyle.setRightBorderColor(createColor(obj));
-                cellStyle.setBottomBorderColor(createColor(obj));
-                cellStyle.setLeftBorderColor(createColor(obj));
+                XSSFColor xssfColor = createColor(obj);
+                cellStyle.setTopBorderColor(xssfColor);
+                cellStyle.setRightBorderColor(xssfColor);
+                cellStyle.setBottomBorderColor(xssfColor);
+                cellStyle.setLeftBorderColor(xssfColor);
             }
         });
 
         Optional.ofNullable(styleConfig.getHorizontalAlign()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                if (StringUtils.isNumeric(obj)) {
-                    cellStyle.setAlignment(HorizontalAlignment.forInt(Integer.parseInt(obj)));
-                } else {
-                    cellStyle.setAlignment(HorizontalAlignment.valueOf(obj.toUpperCase()));
-                }
+                cellStyle.setAlignment(StringUtils.isNumeric(obj) ?
+                        HorizontalAlignment.forInt(Integer.parseInt(obj)) :
+                        HorizontalAlignment.valueOf(obj.toUpperCase()));
             }
         });
 
         Optional.ofNullable(styleConfig.getVerticalAlign()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
-                if (StringUtils.isNumeric(obj)) {
-                    cellStyle.setVerticalAlignment(VerticalAlignment.forInt(Integer.parseInt(obj)));
-                } else {
-                    cellStyle.setVerticalAlignment(VerticalAlignment.valueOf(obj.toUpperCase()));
-                }
+                cellStyle.setVerticalAlignment(StringUtils.isNumeric(obj) ?
+                        VerticalAlignment.forInt(Integer.parseInt(obj)) :
+                        VerticalAlignment.valueOf(obj.toUpperCase()));
             }
         });
 

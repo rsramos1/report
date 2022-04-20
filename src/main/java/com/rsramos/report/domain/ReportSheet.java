@@ -69,6 +69,6 @@ public class ReportSheet implements Serializable {
                 return column;
             }
         }
-        return null;
+        return new ColumnConfig();
     }
 }

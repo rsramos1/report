@@ -12,8 +12,13 @@ public class CellConfig implements Serializable {
     private String foreground;
     private Short fontSize;
     private String fontFamily;
-    private Boolean fontBold;
-    private Boolean fontItalic;
+    private boolean fontBold;
+    private boolean fontItalic;
+    private boolean fontUnderline;
+    private boolean fontUnderlineSingle;
+    private boolean fontUnderlineDouble;
+    private boolean fontUnderlineSingleAccounting;
+    private boolean fontUnderlineDoubleAccounting;
     private String borderType;
     private String borderColor;
     private String verticalAlign;
@@ -75,20 +80,60 @@ public class CellConfig implements Serializable {
         this.fontFamily = fontFamily;
     }
 
-    public Boolean getFontBold() {
+    public boolean isFontBold() {
         return fontBold;
     }
 
-    public void setFontBold(Boolean fontBold) {
+    public void setFontBold(boolean fontBold) {
         this.fontBold = fontBold;
     }
 
-    public Boolean getFontItalic() {
+    public boolean isFontItalic() {
         return fontItalic;
     }
 
-    public void setFontItalic(Boolean fontItalic) {
+    public void setFontItalic(boolean fontItalic) {
         this.fontItalic = fontItalic;
+    }
+
+    public boolean isFontUnderline() {
+        return fontUnderline;
+    }
+
+    public void setFontUnderline(boolean fontUnderline) {
+        this.fontUnderline = fontUnderline;
+    }
+
+    public boolean isFontUnderlineSingle() {
+        return fontUnderlineSingle;
+    }
+
+    public void setFontUnderlineSingle(boolean fontUnderlineSingle) {
+        this.fontUnderlineSingle = fontUnderlineSingle;
+    }
+
+    public boolean isFontUnderlineDouble() {
+        return fontUnderlineDouble;
+    }
+
+    public void setFontUnderlineDouble(boolean fontUnderlineDouble) {
+        this.fontUnderlineDouble = fontUnderlineDouble;
+    }
+
+    public boolean isFontUnderlineSingleAccounting() {
+        return fontUnderlineSingleAccounting;
+    }
+
+    public void setFontUnderlineSingleAccounting(boolean fontUnderlineSingleAccounting) {
+        this.fontUnderlineSingleAccounting = fontUnderlineSingleAccounting;
+    }
+
+    public boolean isFontUnderlineDoubleAccounting() {
+        return fontUnderlineDoubleAccounting;
+    }
+
+    public void setFontUnderlineDoubleAccounting(boolean fontUnderlineDoubleAccounting) {
+        this.fontUnderlineDoubleAccounting = fontUnderlineDoubleAccounting;
     }
 
     public String getBorderType() {
