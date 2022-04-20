@@ -1,14 +1,17 @@
 package com.rsramos.report.controller;
 
-import com.google.gson.JsonObject;
+import com.rsramos.report.domain.ReportSheet;
 import com.rsramos.report.service.ReportService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 @RestController
 @RequestMapping("report")
@@ -19,29 +22,31 @@ public class ReportController {
 
     @ResponseBody
     @PostMapping(path = "xls")
-    public ResponseEntity<byte[]> createXLS(@RequestBody JsonObject json) {
-        return ResponseEntity.ok(service.createXLS(json));
+    public ResponseEntity<byte[]> createXLS(@RequestBody List<ReportSheet> sheets) {
+        return ResponseEntity.ok(service.createXLS(sheets));
     }
 
     @ResponseBody
     @PostMapping(path = "pdf")
-    public ResponseEntity<byte[]> createPDF(@RequestBody JsonObject json) {
-        return ResponseEntity.ok(service.createPDF(json));
+    public ResponseEntity<byte[]> createPDF(@RequestBody List<ReportSheet> sheets) {
+        return ResponseEntity.ok(service.createPDF(sheets));
     }
 
     @ResponseBody
     @PostMapping(path = "test/xls")
-    public void testCreateXLS(@RequestBody JsonObject json) {
-        File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
+    public ResponseEntity<byte[]> testCreateXLS(@RequestBody List<ReportSheet> sheets) {
+        byte[] ret = null;
         try {
+            ret = service.createXLS(sheets);
+            File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
             file.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(file);
-            outputStream.write(service.createXLS(json));
-//            outputStream.flush();
+            outputStream.write(ret);
+            outputStream.flush();
             outputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return ResponseEntity.ok(ret);
     }
-
 }

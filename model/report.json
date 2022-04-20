@@ -1,0 +1,84 @@
+[
+  {
+    "name": "relatorioExcel",
+    "autoFilter": true,
+    "header": {
+      "startRow": 0,
+      "startColumn": 0,
+      "height": 50,
+      "background": "RGB(0,255,0)",
+      "foreground": "RGB(0,0,255)",
+      "fontSize": 15,
+      "fontFamily": "Tahoma",
+      "fontBold": true,
+      "fontUnderline": false,
+      "fontUnderlineSingle": false,
+      "fontUnderlineDouble": false,
+      "fontUnderlineSingleAccounting": false,
+      "fontUnderlineDoubleAccounting": false,
+      "fontItalic": false,
+      "borderType": "thin",
+      "borderColor": "RGB(255,0,0)",
+      "verticalAlign": "center",
+      "horizontalAlign": "center"
+    },
+    "body": {
+      "startRow": 1,
+      "startColumn": 0,
+      "height": 30,
+      "background": "RGB(0,0,255)",
+      "foreground": "RGB(255,0,0)",
+      "fontSize": 12,
+      "fontFamily": "Tahoma",
+      "fontFormat": "bold",
+      "fontBold": false,
+      "fontItalic": false,
+      "fontUnderline": false,
+      "fontUnderlineSingle": false,
+      "fontUnderlineDouble": false,
+      "fontUnderlineSingleAccounting": false,
+      "fontUnderlineDoubleAccounting": false,
+      "borderType": "thin",
+      "borderColor": "RGB(255,255,0)",
+      "verticalAlign": "center",
+      "horizontalAlign": "center"
+    },
+    "columns": [
+      {
+        "field": "nome",
+        "label": "Nome",
+        "width": 200,
+        "type": "STRING"
+      },
+      {
+        "field": "descricao",
+        "label": "Descrição",
+        "width": 500,
+        "type": "STRING"
+      },
+      {
+        "field": "idade",
+        "label": "Idade",
+        "width": 100,
+        "type": "INTEGER"
+      }
+    ],
+    "data": [
+      {
+        "nome": "João",
+        "descricao": "humano",
+        "idade": "27"
+      },
+      {
+        "nome": "Maria",
+        "descricao": "humana",
+        "idade": "22"
+      },
+      {
+        "nome": "José",
+        "descricao": "carinha que mora logo ali",
+        "idade": "22"
+      }
+    ]
+  }
+]
