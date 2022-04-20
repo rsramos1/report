@@ -2,15 +2,15 @@ package com.rsramos.report.report;
 
 import com.rsramos.report.domain.CellConfig;
 import com.rsramos.report.domain.ColumnConfig;
-import com.rsramos.report.domain.Report;
 import com.rsramos.report.domain.ReportSheet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.AreaReference;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
-import org.apache.poi.xssf.usermodel.*;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.*;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,24 +20,24 @@ import java.util.*;
 
 public class CreateXLS extends CreateReport {
 
-    protected XSSFWorkbook workbook;
+    protected Workbook workbook;
 
-    protected CreateXLS(Report report) {
-        super(report);
+    protected CreateXLS(List<ReportSheet> sheets) {
+        super(sheets);
     }
 
     protected void createWorkbook() {
-        this.workbook = new XSSFWorkbook();
-        for (ReportSheet sheet : this.report.getSheets()) {
+        this.workbook = new SXSSFWorkbook();
+        for (ReportSheet sheet : this.sheets) {
             String name = StringUtils.defaultIfBlank(sheet.getName(),
-                    StringUtils.join("Plan", report.getSheets().indexOf(sheet) + 1));
+                    StringUtils.join("Plan", this.sheets.indexOf(sheet) + 1));
             createSheet(sheet, name);
         }
     }
 
     public void createSheet(ReportSheet reportSheet, String name) {
         Set<String> keys = reportSheet.getData().get(0).keySet();
-        XSSFSheet sheet = this.workbook.createSheet(name);
+        Sheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
         createHeader(reportSheet, keys, autoSizeColumns, sheet);
         createBody(reportSheet, keys, sheet);
@@ -45,7 +45,7 @@ public class CreateXLS extends CreateReport {
         applyAutoFilter(reportSheet, sheet);
     }
 
-    protected void applyAutoFilter(ReportSheet reportSheet, XSSFSheet sheet) {
+    protected void applyAutoFilter(ReportSheet reportSheet, Sheet sheet) {
         if (reportSheet.isAutoFilter()) {
             sheet.setAutoFilter(CellRangeAddress.valueOf(StringUtils.join(
                     CellReference.convertNumToColString(reportSheet.getHeader().getStartColumn()),
@@ -59,9 +59,9 @@ public class CreateXLS extends CreateReport {
         }
     }
 
-    protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, XSSFSheet sheet) {
-        XSSFCellStyle cellStyle = createCellStyle(reportSheet.getHeader());
-        XSSFRow row = sheet.createRow(reportSheet.getHeader().getStartRow());
+    protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
+        CellStyle cellStyle = createCellStyle(reportSheet.getHeader());
+        Row row = sheet.createRow(reportSheet.getHeader().getStartRow());
         Optional.ofNullable(reportSheet.getHeader().getHeight()).ifPresent(row::setHeightInPoints);
 
         int index = reportSheet.getHeader().getStartColumn();
@@ -76,30 +76,30 @@ public class CreateXLS extends CreateReport {
                 }
             }
 
-            XSSFCell cell = row.createCell(index++);
+            Cell cell = row.createCell(index++);
             cell.setCellValue(Objects.nonNull(columnConfig.getLabel()) ? columnConfig.getLabel() : key);
             Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
         }
     }
 
-    protected void createBody(ReportSheet reportSheet, Set<String> keys, XSSFSheet sheet) {
-        XSSFCellStyle cellStyle = createCellStyle(reportSheet.getBody());
+    protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
+        CellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
         int rowIndex = reportSheet.getBody().getStartRow();
         for (Map<String, String> element : reportSheet.getData()) {
             int columnIndex = reportSheet.getBody().getStartColumn();
-            XSSFRow row = sheet.createRow(rowIndex++);
+            Row row = sheet.createRow(rowIndex++);
             Optional.ofNullable(reportSheet.getBody().getHeight()).ifPresent(row::setHeightInPoints);
 
             for (String key : keys) {
-                XSSFCell cell = row.createCell(columnIndex++);
+                Cell cell = row.createCell(columnIndex++);
                 setCellValue(cell, element.get(key), reportSheet.getColumn(key));
                 Optional.ofNullable(cellStyle).ifPresent(cell::setCellStyle);
             }
         }
     }
 
-    protected void setCellValue(XSSFCell cell, String value, ColumnConfig columnConfig) {
+    protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
         if (Objects.nonNull(value)) {
             String type = columnConfig.getType().trim();
             if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
@@ -149,9 +149,9 @@ public class CreateXLS extends CreateReport {
         }
     }
 
-    protected XSSFCellStyle createCellStyle(CellConfig styleConfig) {
-        XSSFCellStyle cellStyle = this.workbook.createCellStyle();
-        XSSFFont font = this.workbook.createFont();
+    protected CellStyle createCellStyle(CellConfig styleConfig) {
+        XSSFCellStyle cellStyle = (XSSFCellStyle) this.workbook.createCellStyle();
+        XSSFFont font = (XSSFFont) this.workbook.createFont();
 
         Optional.ofNullable(styleConfig.getForeground()).ifPresent(obj -> {
             if (StringUtils.isNotBlank(obj)) {
@@ -261,7 +261,7 @@ public class CreateXLS extends CreateReport {
         return outputStream;
     }
 
-    public static byte[] createXLS(Report report) {
-        return new CreateXLS(report).build();
+    public static byte[] createXLS(List<ReportSheet> sheets) {
+        return new CreateXLS(sheets).build();
     }
 }

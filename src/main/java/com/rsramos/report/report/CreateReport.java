@@ -1,20 +1,29 @@
 package com.rsramos.report.report;
 
-import com.rsramos.report.domain.Report;
+import com.rsramos.report.domain.ReportSheet;
 import org.bouncycastle.util.encoders.Hex;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 
 public abstract class CreateReport implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected final Report report;
+    protected final List<ReportSheet> sheets;
 
-    protected CreateReport(Report report) {
-        this.report = report;
+    protected CreateReport(List<ReportSheet> sheets) {
+        if (sheets.isEmpty()) {
+            throw new IllegalArgumentException("Sheets cannot be empty");
+        } else if (sheets.stream().anyMatch(sheet -> sheet.getData().isEmpty())) {
+            throw new IllegalArgumentException("Data cannot be empty");
+        }
+        this.sheets = sheets;
     }
 
     public abstract ByteArrayOutputStream buildByteArrayOutputStream() throws IOException;
