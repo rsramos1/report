@@ -51,23 +51,23 @@ public class CreateXLS extends CreateReport {
     protected void applyAutoFilter(ReportSheet reportSheet, Sheet sheet) {
         if (reportSheet.isAutoFilter()) {
             sheet.setAutoFilter(CellRangeAddress.valueOf(StringUtils.join(
-                    CellReference.convertNumToColString(reportSheet.getHeader().getStartColumn()),
-                    reportSheet.getHeader().getStartRow() + 1,
+                    CellReference.convertNumToColString(reportSheet.getHeaderStyle().getStartColumn()),
+                    reportSheet.getHeaderStyle().getStartRow() + 1,
                     ":",
                     CellReference.convertNumToColString(Integer.sum(
-                            reportSheet.getBody().getStartColumn(),
+                            reportSheet.getBodyStyle().getStartColumn(),
                             reportSheet.getData()[0].size() - 1)),
-                    Integer.sum(reportSheet.getBody().getStartRow(),
+                    Integer.sum(reportSheet.getBodyStyle().getStartRow(),
                             reportSheet.getData().length))));
         }
     }
 
     protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
-        CellStyle cellStyle = createCellStyle(reportSheet.getHeader());
-        Row row = sheet.createRow(reportSheet.getHeader().getStartRow());
-        Optional.ofNullable(reportSheet.getHeader().getHeight()).ifPresent(row::setHeightInPoints);
+        CellStyle cellStyle = createCellStyle(reportSheet.getHeaderStyle());
+        Row row = sheet.createRow(reportSheet.getHeaderStyle().getStartRow());
+        Optional.ofNullable(reportSheet.getHeaderStyle().getHeight()).ifPresent(row::setHeightInPoints);
 
-        AtomicInteger index = new AtomicInteger(reportSheet.getHeader().getStartColumn());
+        AtomicInteger index = new AtomicInteger(reportSheet.getHeaderStyle().getStartColumn());
         keys.forEach(key -> {
             ColumnConfig columnConfig = reportSheet.getColumn(key);
             if (StringUtils.isNotBlank(columnConfig.getWidth())) {
@@ -90,21 +90,28 @@ public class CreateXLS extends CreateReport {
     }
 
     protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
-        CellStyle cellStyle = createCellStyle(reportSheet.getBody());
+        CellStyle cellStyle = createCellStyle(reportSheet.getBodyStyle());
 
-        AtomicInteger rowIndex = new AtomicInteger(reportSheet.getBody().getStartRow() <= reportSheet.getHeader().getStartRow() ?
-                reportSheet.getHeader().getStartRow() + 1 : reportSheet.getBody().getStartRow());
+        AtomicInteger rowIndex = new AtomicInteger(reportSheet.getBodyStyle().getStartRow() <= reportSheet.getHeaderStyle().getStartRow() ?
+                reportSheet.getHeaderStyle().getStartRow() + 1 : reportSheet.getBodyStyle().getStartRow());
         Stream.of(reportSheet.getData()).forEach(element -> {
-            AtomicInteger columnIndex = new AtomicInteger(reportSheet.getBody().getStartColumn());
+            AtomicInteger columnIndex = new AtomicInteger(reportSheet.getBodyStyle().getStartColumn());
             Row row = sheet.createRow(rowIndex.getAndIncrement());
-            Optional.ofNullable(reportSheet.getBody().getHeight()).ifPresent(row::setHeightInPoints);
+            Optional.ofNullable(reportSheet.getBodyStyle().getHeight()).ifPresent(row::setHeightInPoints);
 
             keys.forEach(key -> {
-                Cell cell = row.createCell(columnIndex.getAndIncrement());
-                setCellValue(cell, element.get(key), reportSheet.getColumn(key));
-                cell.setCellStyle(cellStyle);
+                ColumnConfig columnConfig = reportSheet.getColumn(key);
+                createCell(row.createCell(columnIndex.getAndIncrement()),
+                        element.get(key), columnConfig,
+                        Objects.nonNull(columnConfig.getStyle()) ?
+                                createCellStyle(columnConfig.getStyle()) : cellStyle);
             });
         });
+    }
+
+    protected void createCell(Cell cell, String value, ColumnConfig columnConfig, CellStyle cellStyle) {
+        setCellValue(cell, value, columnConfig);
+        cell.setCellStyle(cellStyle);
     }
 
     protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {

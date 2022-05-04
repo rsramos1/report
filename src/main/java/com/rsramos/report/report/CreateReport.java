@@ -20,7 +20,7 @@ public abstract class CreateReport implements Serializable {
     protected CreateReport(List<ReportSheet> sheets) {
         if (sheets.isEmpty()) {
             throw new IllegalArgumentException("Sheets cannot be empty");
-        } else if (sheets.stream().anyMatch(sheet -> sheet.getData().length == 0)) {
+        } else if (sheets.stream().anyMatch(sheet -> sheet.getData().length < 1)) {
             throw new IllegalArgumentException("Data cannot be empty");
         }
         this.sheets = sheets;

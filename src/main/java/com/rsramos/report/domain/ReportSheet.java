@@ -1,16 +1,18 @@
 package com.rsramos.report.domain;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ReportSheet implements Serializable {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     private String name;
-    private CellConfig header = new CellConfig();
-    private CellConfig body = new CellConfig();
+    private CellConfig headerStyle = new CellConfig();
+    private CellConfig bodyStyle = new CellConfig();
     private List<ColumnConfig> columns = new ArrayList<>();
     private Map<String, String>[] data;
     private boolean autoFilter;
@@ -23,20 +25,20 @@ public class ReportSheet implements Serializable {
         this.name = name;
     }
 
-    public CellConfig getHeader() {
-        return header;
+    public CellConfig getHeaderStyle() {
+        return headerStyle;
     }
 
-    public void setHeader(CellConfig header) {
-        this.header = header;
+    public void setHeaderStyle(CellConfig headerStyle) {
+        this.headerStyle = headerStyle;
     }
 
-    public CellConfig getBody() {
-        return body;
+    public CellConfig getBodyStyle() {
+        return bodyStyle;
     }
 
-    public void setBody(CellConfig body) {
-        this.body = body;
+    public void setBodyStyle(CellConfig bodyStyle) {
+        this.bodyStyle = bodyStyle;
     }
 
     public List<ColumnConfig> getColumns() {

@@ -9,6 +9,7 @@ public class ColumnConfig implements Serializable {
     private String label;
     private String width;
     private String type;
+    private CellConfig style;
 
     public String getField() {
         return field;
@@ -40,5 +41,13 @@ public class ColumnConfig implements Serializable {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public CellConfig getStyle() {
+        return style;
+    }
+
+    public void setStyle(CellConfig style) {
+        this.style = style;
     }
 }
