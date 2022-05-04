@@ -93,7 +93,6 @@
             <artifactId>jasperreports-fonts</artifactId>
             <version>${jasperreport-version}</version>
         </dependency>
-
     </dependencies>
 
     <build>

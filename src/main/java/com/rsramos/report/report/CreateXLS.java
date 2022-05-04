@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 public class CreateXLS extends CreateReport {
 
@@ -29,15 +31,15 @@ public class CreateXLS extends CreateReport {
 
     protected void createWorkbook() {
         this.workbook = new SXSSFWorkbook();
-        for (ReportSheet sheet : this.sheets) {
+        this.sheets.forEach(sheet -> {
             String name = StringUtils.defaultIfBlank(sheet.getName(),
                     StringUtils.join("Plan", this.sheets.indexOf(sheet) + 1));
             createSheet(sheet, name);
-        }
+        });
     }
 
     public void createSheet(ReportSheet reportSheet, String name) {
-        Set<String> keys = reportSheet.getData().get(0).keySet();
+        Set<String> keys = reportSheet.getData()[0].keySet();
         Sheet sheet = this.workbook.createSheet(name);
         List<Integer> autoSizeColumns = new ArrayList<>();
         createHeader(reportSheet, keys, autoSizeColumns, sheet);
@@ -54,9 +56,9 @@ public class CreateXLS extends CreateReport {
                     ":",
                     CellReference.convertNumToColString(Integer.sum(
                             reportSheet.getBody().getStartColumn(),
-                            reportSheet.getData().get(0).size() - 1)),
+                            reportSheet.getData()[0].size() - 1)),
                     Integer.sum(reportSheet.getBody().getStartRow(),
-                            reportSheet.getData().size()))));
+                            reportSheet.getData().length))));
         }
     }
 
@@ -65,23 +67,23 @@ public class CreateXLS extends CreateReport {
         Row row = sheet.createRow(reportSheet.getHeader().getStartRow());
         Optional.ofNullable(reportSheet.getHeader().getHeight()).ifPresent(row::setHeightInPoints);
 
-        int index = reportSheet.getHeader().getStartColumn();
-        for (String key : keys) {
+        AtomicInteger index = new AtomicInteger(reportSheet.getHeader().getStartColumn());
+        keys.forEach(key -> {
             ColumnConfig columnConfig = reportSheet.getColumn(key);
             if (StringUtils.isNotBlank(columnConfig.getWidth())) {
                 if (StringUtils.isNumeric(columnConfig.getWidth())) {
                     int width = (int) Math.round((Double.parseDouble(
                             columnConfig.getWidth()) * 256.0D / 7.001699924468994D));
-                    sheet.setColumnWidth(index, width <= 65280 ? width : 65280);
+                    sheet.setColumnWidth(index.get(), width <= 65280 ? width : 65280);
                 } else if (StringUtils.equalsIgnoreCase("AUTO", columnConfig.getWidth().trim())) {
-                    autoSizeColumns.add(index);
+                    autoSizeColumns.add(index.get());
                 }
             }
 
-            Cell cell = row.createCell(index++);
+            Cell cell = row.createCell(index.getAndIncrement());
             cell.setCellValue(Objects.nonNull(columnConfig.getLabel()) ? columnConfig.getLabel() : key);
             cell.setCellStyle(cellStyle);
-        }
+        });
         if (!autoSizeColumns.isEmpty()) {
             ((SXSSFSheet) sheet).trackColumnsForAutoSizing(autoSizeColumns);
         }
@@ -90,24 +92,24 @@ public class CreateXLS extends CreateReport {
     protected void createBody(ReportSheet reportSheet, Set<String> keys, Sheet sheet) {
         CellStyle cellStyle = createCellStyle(reportSheet.getBody());
 
-        int rowIndex = reportSheet.getBody().getStartRow() <= reportSheet.getHeader().getStartRow() ?
-                reportSheet.getHeader().getStartRow() + 1 : reportSheet.getBody().getStartRow();
-        for (Map<String, String> element : reportSheet.getData()) {
-            int columnIndex = reportSheet.getBody().getStartColumn();
-            Row row = sheet.createRow(rowIndex++);
+        AtomicInteger rowIndex = new AtomicInteger(reportSheet.getBody().getStartRow() <= reportSheet.getHeader().getStartRow() ?
+                reportSheet.getHeader().getStartRow() + 1 : reportSheet.getBody().getStartRow());
+        Stream.of(reportSheet.getData()).forEach(element -> {
+            AtomicInteger columnIndex = new AtomicInteger(reportSheet.getBody().getStartColumn());
+            Row row = sheet.createRow(rowIndex.getAndIncrement());
             Optional.ofNullable(reportSheet.getBody().getHeight()).ifPresent(row::setHeightInPoints);
 
-            for (String key : keys) {
-                Cell cell = row.createCell(columnIndex++);
+            keys.forEach(key -> {
+                Cell cell = row.createCell(columnIndex.getAndIncrement());
                 setCellValue(cell, element.get(key), reportSheet.getColumn(key));
                 cell.setCellStyle(cellStyle);
-            }
-        }
+            });
+        });
     }
 
     protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
         String type = StringUtils.defaultIfBlank(columnConfig.getType(), "").trim();
-        if (Objects.nonNull(value)) {
+        if (StringUtils.isNotBlank(value)) {
             if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
                     "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
                 cell.setCellValue(Double.parseDouble(value));
