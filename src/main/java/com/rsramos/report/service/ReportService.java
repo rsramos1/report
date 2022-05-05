@@ -10,7 +10,11 @@ import java.util.List;
 public class ReportService {
 
     public byte[] createXLS(List<ReportSheet> sheets) {
-        return CreateXLS.createXLS(sheets);
+        return CreateXLS.createXLS(sheets).build();
+    }
+
+    public byte[] createXLSBase64(List<ReportSheet> sheets) {
+        return CreateXLS.createXLS(sheets).buildBase64();
     }
 
     public byte[] createPDF(List<ReportSheet> sheets) {

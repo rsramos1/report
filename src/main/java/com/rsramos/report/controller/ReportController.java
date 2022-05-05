@@ -27,6 +27,12 @@ public class ReportController {
     }
 
     @ResponseBody
+    @PostMapping(path = "xls/base64")
+    public ResponseEntity<byte[]> createXLSBase64(@RequestBody List<ReportSheet> sheets) {
+        return ResponseEntity.ok(service.createXLSBase64(sheets));
+    }
+
+    @ResponseBody
     @PostMapping(path = "pdf")
     public ResponseEntity<byte[]> createPDF(@RequestBody List<ReportSheet> sheets) {
         return ResponseEntity.ok(service.createPDF(sheets));
@@ -38,7 +44,7 @@ public class ReportController {
         byte[] ret = null;
         try {
             ret = service.createXLS(sheets);
-            File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", new Date().toString().replaceAll(":", "-"), ".xlsx"));
+            File file = new File(StringUtils.join("C:\\temp\\REPORT_XLS\\", String.valueOf(new Date().getTime()), ".xlsx"));
             file.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.write(ret);

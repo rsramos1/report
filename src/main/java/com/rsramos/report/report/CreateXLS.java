@@ -4,6 +4,8 @@ import com.rsramos.report.domain.CellConfig;
 import com.rsramos.report.domain.ColumnConfig;
 import com.rsramos.report.domain.ReportSheet;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StrBuilder;
+import org.apache.commons.text.TextStringBuilder;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
@@ -23,6 +25,8 @@ import java.util.stream.Stream;
 
 public class CreateXLS extends CreateReport {
 
+    public static String DEFAULT_WORKSHEET_NAME = "Plan";
+
     protected Workbook workbook;
 
     protected CreateXLS(List<ReportSheet> sheets) {
@@ -33,7 +37,7 @@ public class CreateXLS extends CreateReport {
         this.workbook = new SXSSFWorkbook();
         this.sheets.forEach(sheet -> {
             String name = StringUtils.defaultIfBlank(sheet.getName(),
-                    StringUtils.join("Plan", this.sheets.indexOf(sheet) + 1));
+                    StringUtils.join(DEFAULT_WORKSHEET_NAME, this.sheets.indexOf(sheet) + 1));
             createSheet(sheet, name);
         });
     }
@@ -62,6 +66,10 @@ public class CreateXLS extends CreateReport {
         }
     }
 
+    protected int calculateApproximateWidth(double pixel) {
+        return Math.min((int) Math.round((pixel * 256.0D / 7.001699924468994D)), 65280);
+    }
+
     protected void createHeader(ReportSheet reportSheet, Set<String> keys, List<Integer> autoSizeColumns, Sheet sheet) {
         CellStyle cellStyle = createCellStyle(reportSheet.getHeaderStyle());
         Row row = sheet.createRow(reportSheet.getHeaderStyle().getStartRow());
@@ -72,10 +80,9 @@ public class CreateXLS extends CreateReport {
             ColumnConfig columnConfig = reportSheet.getColumn(key);
             if (StringUtils.isNotBlank(columnConfig.getWidth())) {
                 if (StringUtils.isNumeric(columnConfig.getWidth())) {
-                    int width = (int) Math.round((Double.parseDouble(
-                            columnConfig.getWidth()) * 256.0D / 7.001699924468994D));
-                    sheet.setColumnWidth(index.get(), width <= 65280 ? width : 65280);
-                } else if (StringUtils.equalsIgnoreCase("AUTO", columnConfig.getWidth().trim())) {
+                    sheet.setColumnWidth(index.get(),
+                            calculateApproximateWidth(Double.parseDouble(columnConfig.getWidth())));
+                } else if (StringUtils.equalsIgnoreCase(ColumnConfig.WIDTH_AUTO, columnConfig.getWidth().trim())) {
                     autoSizeColumns.add(index.get());
                 }
             }
@@ -115,51 +122,32 @@ public class CreateXLS extends CreateReport {
     }
 
     protected void setCellValue(Cell cell, String value, ColumnConfig columnConfig) {
-        String type = StringUtils.defaultIfBlank(columnConfig.getType(), "").trim();
+        String type = StringUtils.defaultIfBlank(columnConfig.getType(), StringUtils.EMPTY).trim();
         if (StringUtils.isNotBlank(value)) {
-            if (StringUtils.equalsAnyIgnoreCase(type, "INT", "DOUBLE", "INTEGER", "INT", "NUMBER",
-                    "FLOAT", "SHORT", "BYTE", "DECIMAL", "BIGDECIMAL", "BIG_DECIMAL")) {
+            if (StringUtils.equalsAnyIgnoreCase(type, ColumnConfig.NUMERIC_TYPE)) {
                 cell.setCellValue(Double.parseDouble(value));
-            } else if (StringUtils.equalsAnyIgnoreCase(type, "BOOL", "BOOLEAN")) {
+            } else if (StringUtils.equalsAnyIgnoreCase(type, ColumnConfig.BOOLEAN_TYPE)) {
                 cell.setCellValue(Boolean.parseBoolean(value));
-            } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATE", "LOCAL_DATE")) {
+            } else if (StringUtils.equalsAnyIgnoreCase(type, ColumnConfig.LOCAL_DATE_TYPE)) {
                 if (StringUtils.contains(value, "-")) {
                     cell.setCellValue(LocalDate.parse(value));
                 } else {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(StringUtils.substring(value, 0, 4));
-                    sb.append("-");
-                    sb.append(StringUtils.substring(value, 4, 6));
-                    sb.append("-");
-                    sb.append(StringUtils.substring(value, 6, 8));
-                    cell.setCellValue(LocalDate.parse(sb.toString()));
+                    cell.setCellValue(LocalDate.parse(localDateStringFormatted(value)));
                 }
-            } else if (StringUtils.equalsAnyIgnoreCase(type, "LOCALDATETIME", "LOCAL_DATE_TIME")) {
+            } else if (StringUtils.equalsAnyIgnoreCase(type, ColumnConfig.LOCAL_DATE_TIME_TYPE)) {
                 if (StringUtils.contains(value, "-")) {
                     cell.setCellValue(LocalDateTime.parse(value.toUpperCase()));
                 } else {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(StringUtils.substring(value, 0, 4));
-                    sb.append("-");
-                    sb.append(StringUtils.substring(value, 4, 6));
-                    sb.append("-");
-                    sb.append(StringUtils.substring(value, 6, 8));
-                    sb.append("T");
-                    sb.append(StringUtils.substring(value, 8, 10));
-                    sb.append(":");
-                    sb.append(StringUtils.substring(value, 10, 12));
-                    sb.append(":");
-                    sb.append(StringUtils.substring(value, 12, 14));
-                    cell.setCellValue(LocalDateTime.parse(sb.toString()));
+                    cell.setCellValue(LocalDateTime.parse(localDateTimeStringFormatted(value)));
                 }
-            } else if (StringUtils.equalsIgnoreCase(type, "DATE")) {
+            } else if (StringUtils.equalsIgnoreCase(type, ColumnConfig.DATE_TYPE)) {
                 cell.setCellValue(new Date(Long.parseLong(value)));
-            } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
+            } else if (StringUtils.equalsIgnoreCase(type, ColumnConfig.CALENDAR_TYPE)) {
                 cell.setCellValue(Calendar.getInstance());
             } else {
                 cell.setCellValue(value);
             }
-        } else if (StringUtils.equalsIgnoreCase(type, "CALENDAR")) {
+        } else if (StringUtils.equalsIgnoreCase(type, ColumnConfig.CALENDAR_TYPE)) {
             cell.setCellValue(Calendar.getInstance());
         }
     }
@@ -281,7 +269,7 @@ public class CreateXLS extends CreateReport {
         return outputStream;
     }
 
-    public static byte[] createXLS(List<ReportSheet> sheets) {
-        return new CreateXLS(sheets).build();
+    public static CreateXLS createXLS(List<ReportSheet> sheets) {
+        return new CreateXLS(sheets);
     }
 }
